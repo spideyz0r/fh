@@ -97,8 +97,8 @@ Build a modern shell history replacement in incremental phases, starting with co
 
 ### Tasks
 
-#### 1.1 Database Schema & Migrations
-- [ ] Design SQLite schema (pkg/storage/schema.go):
+#### 1.1 Database Schema & Migrations ✅
+- [x] Design SQLite schema (pkg/storage/schema.go):
   ```go
   type HistoryEntry struct {
       ID        int64
@@ -112,19 +112,19 @@ Build a modern shell history replacement in incremental phases, starting with co
       Hash      string
   }
   ```
-- [ ] Create migration system (simple version-based):
-  - [ ] Schema version tracking table
-  - [ ] Migration functions (v1, v2, etc.)
-  - [ ] Automatic migration on DB open
-- [ ] Implement database initialization (pkg/storage/db.go):
-  - [ ] Create database file if not exists
-  - [ ] Enable WAL mode
-  - [ ] Create tables and indexes
-  - [ ] Set pragmas for performance
-- [ ] Write tests:
-  - [ ] Test database creation
-  - [ ] Test migrations
-  - [ ] Test schema integrity
+- [x] Create migration system (simple version-based):
+  - [x] Schema version tracking table
+  - [x] Migration functions (v1, v2, etc.)
+  - [x] Automatic migration on DB open
+- [x] Implement database initialization (pkg/storage/db.go):
+  - [x] Create database file if not exists
+  - [x] Enable WAL mode
+  - [x] Create tables and indexes
+  - [x] Set pragmas for performance
+- [x] Write tests:
+  - [x] Test database creation
+  - [x] Test migrations
+  - [x] Test schema integrity
 
 #### 1.2 Storage Layer (CRUD Operations)
 - [ ] Implement storage interface (pkg/storage/interface.go):
