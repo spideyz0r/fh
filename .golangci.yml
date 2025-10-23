@@ -1,0 +1,95 @@
+run:
+  timeout: 5m
+  tests: true
+  modules-download-mode: readonly
+
+linters:
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - typecheck
+    - unused
+    - gofmt
+    - goimports
+    - misspell
+    - revive
+    - unconvert
+    - unparam
+    - whitespace
+    - gocyclo
+    - gocritic
+    - godot
+    - exportloopref
+    - nilerr
+
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+
+  govet:
+    check-shadowing: true
+
+  gocyclo:
+    min-complexity: 15
+
+  misspell:
+    locale: US
+
+  revive:
+    rules:
+      - name: exported
+        severity: warning
+        disabled: false
+      - name: unexported-return
+        severity: warning
+        disabled: false
+      - name: error-naming
+        severity: warning
+        disabled: false
+      - name: error-strings
+        severity: warning
+        disabled: false
+      - name: blank-imports
+        severity: warning
+        disabled: false
+      - name: context-as-argument
+        severity: warning
+        disabled: false
+      - name: context-keys-type
+        severity: warning
+        disabled: false
+      - name: indent-error-flow
+        severity: warning
+        disabled: false
+      - name: var-naming
+        severity: warning
+        disabled: false
+
+issues:
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+  exclude-rules:
+    # Exclude some linters from running on tests files
+    - path: _test\.go
+      linters:
+        - gocyclo
+        - errcheck
+        - dupl
+        - gosec
+
+    # Exclude testutil package from some checks
+    - path: pkg/testutil/
+      linters:
+        - errcheck
+        - unused
+
+output:
+  format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
