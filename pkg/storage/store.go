@@ -113,6 +113,7 @@ func (db *DB) Query(filters QueryFilters) ([]*HistoryEntry, error) {
 	for rows.Next() {
 		entry := &HistoryEntry{}
 		var createdAt int64
+		var hash sql.NullString
 
 		err := rows.Scan(
 			&entry.ID,
@@ -125,12 +126,16 @@ func (db *DB) Query(filters QueryFilters) ([]*HistoryEntry, error) {
 			&entry.Shell,
 			&entry.DurationMs,
 			&entry.GitBranch,
-			&entry.Hash,
+			&hash,
 			&entry.SessionID,
 			&createdAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan entry: %w", err)
+		}
+
+		if hash.Valid {
+			entry.Hash = hash.String
 		}
 
 		entries = append(entries, entry)
@@ -149,6 +154,7 @@ func (db *DB) GetByID(id int64) (*HistoryEntry, error) {
 
 	entry := &HistoryEntry{}
 	var createdAt int64
+	var hash sql.NullString
 
 	err := db.conn.QueryRow(query, id).Scan(
 		&entry.ID,
@@ -161,7 +167,7 @@ func (db *DB) GetByID(id int64) (*HistoryEntry, error) {
 		&entry.Shell,
 		&entry.DurationMs,
 		&entry.GitBranch,
-		&entry.Hash,
+		&hash,
 		&entry.SessionID,
 		&createdAt,
 	)
@@ -171,6 +177,10 @@ func (db *DB) GetByID(id int64) (*HistoryEntry, error) {
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get entry: %w", err)
+	}
+
+	if hash.Valid {
+		entry.Hash = hash.String
 	}
 
 	return entry, nil

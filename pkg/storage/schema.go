@@ -1,22 +1,19 @@
 package storage
 
-import "time"
-
 // HistoryEntry represents a single command in the history
 type HistoryEntry struct {
-	ID         int64     `db:"id"`
-	Timestamp  int64     `db:"timestamp"`
-	Command    string    `db:"command"`
-	Cwd        string    `db:"cwd"`
-	ExitCode   int       `db:"exit_code"`
-	Hostname   string    `db:"hostname"`
-	User       string    `db:"user"`
-	Shell      string    `db:"shell"`
-	DurationMs int64     `db:"duration_ms"`
-	GitBranch  string    `db:"git_branch"`
-	Hash       string    `db:"hash"`
-	SessionID  string    `db:"session_id"`
-	CreatedAt  time.Time `db:"created_at"`
+	ID         int64  `db:"id"`
+	Timestamp  int64  `db:"timestamp"`
+	Command    string `db:"command"`
+	Cwd        string `db:"cwd"`
+	ExitCode   int    `db:"exit_code"`
+	Hostname   string `db:"hostname"`
+	User       string `db:"user"`
+	Shell      string `db:"shell"`
+	DurationMs int64  `db:"duration_ms"`
+	GitBranch  string `db:"git_branch"`
+	Hash       string `db:"hash"` // Can be empty for KeepAll strategy
+	SessionID  string `db:"session_id"`
 }
 
 // Schema versions for migration tracking
