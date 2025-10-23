@@ -20,72 +20,72 @@ Build a modern shell history replacement in incremental phases, starting with co
 
 ### Tasks
 
-#### 0.1 Project Initialization
-- [ ] Initialize Go module (`go mod init github.com/spideyz0r/fh`)
-- [ ] Create directory structure (cmd/, pkg/, shell/, config/, test/)
-- [ ] Set up .gitignore for Go projects
-- [ ] Choose Go version (1.21+)
-- [ ] Add LICENSE file
-- [ ] Create initial README.md with project vision and installation placeholder
+#### 0.1 Project Initialization ✅
+- [x] Initialize Go module (`go mod init github.com/spideyz0r/fh`)
+- [x] Create directory structure (cmd/, pkg/, shell/, config/, test/)
+- [x] Set up .gitignore for Go projects
+- [x] Choose Go version (1.21+)
+- [x] Add LICENSE file
+- [x] Create initial README.md with project vision and installation placeholder
 
-#### 0.2 Development Tooling
-- [ ] Set up Makefile with common tasks:
-  - [ ] `make build` - Build binary
-  - [ ] `make test` - Run all tests
-  - [ ] `make coverage` - Generate coverage report
-  - [ ] `make lint` - Run linters
-  - [ ] `make install` - Install to $GOPATH/bin
-  - [ ] `make clean` - Clean build artifacts
-- [ ] Configure golangci-lint with sensible defaults
+#### 0.2 Development Tooling ✅
+- [x] Set up Makefile with common tasks:
+  - [x] `make build` - Build binary
+  - [x] `make test` - Run all tests
+  - [x] `make coverage` - Generate coverage report
+  - [x] `make lint` - Run linters
+  - [x] `make install` - Install to $GOPATH/bin
+  - [x] `make clean` - Clean build artifacts
+- [x] Configure golangci-lint with sensible defaults
 - [ ] Set up pre-commit hooks (optional but recommended)
 
-#### 0.3 Testing Infrastructure
-- [ ] Choose testing libraries:
-  - [ ] Standard `testing` package
-  - [ ] `github.com/stretchr/testify` for assertions
-  - [ ] `github.com/DATA-DOG/go-sqlmock` for database mocking
-- [ ] Create test helper utilities (pkg/testutil/)
-- [ ] Set up table-driven test patterns
-- [ ] Configure coverage reporting (codecov or coveralls)
+#### 0.3 Testing Infrastructure ✅
+- [x] Choose testing libraries:
+  - [x] Standard `testing` package
+  - [x] `github.com/stretchr/testify` for assertions
+  - [x] `github.com/DATA-DOG/go-sqlmock` for database mocking
+- [x] Create test helper utilities (pkg/testutil/)
+- [x] Set up table-driven test patterns
+- [x] Configure coverage reporting (codecov or coveralls)
 
-#### 0.4 CI/CD Pipeline
-- [ ] Create `.github/workflows/test.yml`:
-  - [ ] Run on: push, pull_request
-  - [ ] Test on multiple Go versions (1.21, 1.22)
-  - [ ] Test on multiple OS (linux, macos)
-  - [ ] Upload coverage reports
-  - [ ] Fail if coverage drops below threshold (80%)
-- [ ] Create `.github/workflows/lint.yml`:
-  - [ ] Run golangci-lint
-  - [ ] Check formatting (gofmt)
-  - [ ] Check go mod tidy
-- [ ] Create `.github/workflows/release.yml`:
-  - [ ] Trigger on: tag push (v*.*.*)
-  - [ ] Use goreleaser for multi-platform builds
-  - [ ] Create GitHub release with binaries
-  - [ ] Generate changelog from commits
-- [ ] Configure goreleaser.yml:
-  - [ ] Build for: linux, darwin, windows
-  - [ ] Architectures: amd64, arm64
-  - [ ] Archive formats: tar.gz, zip
-  - [ ] Checksums and signatures
+#### 0.4 CI/CD Pipeline ✅
+- [x] Create `.github/workflows/test.yml`:
+  - [x] Run on: push, pull_request
+  - [x] Test on multiple Go versions (1.21, 1.22, 1.23)
+  - [x] Test on multiple OS (linux, macos)
+  - [x] Upload coverage reports
+  - [x] Fail if coverage drops below threshold (80%)
+- [x] Create `.github/workflows/lint.yml`:
+  - [x] Run golangci-lint
+  - [x] Check formatting (gofmt)
+  - [x] Check go mod tidy
+- [x] Create `.github/workflows/release.yml`:
+  - [x] Trigger on: tag push (v*.*.*)
+  - [x] Use goreleaser for multi-platform builds
+  - [x] Create GitHub release with binaries
+  - [x] Generate changelog from commits
+- [x] Configure goreleaser.yml:
+  - [x] Build for: linux, darwin, windows
+  - [x] Architectures: amd64, arm64
+  - [x] Archive formats: tar.gz, zip
+  - [x] Checksums and signatures
 
-#### 0.5 Documentation
-- [ ] Create README.md structure:
-  - [ ] Project description
-  - [ ] Features (will expand)
-  - [ ] Installation (placeholder)
-  - [ ] Quick start (placeholder)
-  - [ ] Usage (placeholder)
-  - [ ] Configuration (placeholder)
-  - [ ] Development (how to contribute)
-  - [ ] License
-- [ ] Create CONTRIBUTING.md:
-  - [ ] How to set up development environment
-  - [ ] How to run tests
-  - [ ] Code style guidelines
-  - [ ] PR process
-- [ ] Create CODE_OF_CONDUCT.md
+#### 0.5 Documentation ✅
+- [x] Create README.md structure:
+  - [x] Project description
+  - [x] Features (will expand)
+  - [x] Installation (placeholder)
+  - [x] Quick start (placeholder)
+  - [x] Usage (placeholder)
+  - [x] Configuration (placeholder)
+  - [x] Development (how to contribute)
+  - [x] License
+- [x] Create CONTRIBUTING.md:
+  - [x] How to set up development environment
+  - [x] How to run tests
+  - [x] Code style guidelines
+  - [x] PR process
+- [ ] Create CODE_OF_CONDUCT.md (skipped)
 
 **Deliverable**: Working project structure with CI/CD, ready for development
 
