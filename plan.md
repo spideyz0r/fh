@@ -170,27 +170,35 @@ Build a modern shell history replacement in incremental phases, starting with co
   - [x] Test GetDuplicates and DeduplicateExisting
   - [x] Test auto hash generation
 
-#### 1.4 Command Capture (Manual)
-- [ ] Implement capture package (pkg/capture/capture.go):
-  - [ ] Collect command metadata:
-    - [ ] Current working directory
-    - [ ] Hostname
-    - [ ] Username
-    - [ ] Shell type (from $SHELL)
-    - [ ] Timestamp
-  - [ ] Optional metadata:
-    - [ ] Git branch (detect .git)
-    - [ ] Exit code (passed as parameter)
-- [ ] Implement --save flag handler (cmd/save.go):
-  - [ ] Parse command line args
-  - [ ] Create HistoryEntry
-  - [ ] Insert to database
-  - [ ] Handle errors gracefully
-- [ ] Write tests:
-  - [ ] Test metadata collection
-  - [ ] Test git branch detection
-  - [ ] Test save with various inputs
-  - [ ] Test error handling
+#### 1.4 Command Capture (Manual) ✅
+- [x] Implement capture package (pkg/capture/capture.go):
+  - [x] Collect command metadata:
+    - [x] Current working directory
+    - [x] Hostname
+    - [x] Username
+    - [x] Shell type (from $SHELL)
+    - [x] Timestamp
+  - [x] Optional metadata:
+    - [x] Git branch (detect .git)
+    - [x] Exit code (passed as parameter)
+    - [x] Duration in milliseconds
+    - [x] Session ID generation
+- [x] Write tests for metadata collection:
+  - [x] Test metadata collection
+  - [x] Test git branch detection
+  - [x] Test session ID generation
+- [x] Implement main.go entry point:
+  - [x] Parse command line args (no Cobra, simple flag parsing)
+  - [x] Handle --save flag with --cmd, --exit-code, --duration
+  - [x] Handle --help and --version flags
+- [x] Implement --save command handler:
+  - [x] Create HistoryEntry from metadata
+  - [x] Insert to database with KeepAll dedup config
+  - [x] Handle errors gracefully (silent exit on success)
+- [x] Manual testing:
+  - [x] Test save with various commands
+  - [x] Verified metadata collection (cwd, hostname, user, shell, git branch)
+  - [x] Verified database storage and retrieval
 
 #### 1.5 Configuration System
 - [ ] Define config structure (pkg/config/config.go):
