@@ -200,26 +200,31 @@ Build a modern shell history replacement in incremental phases, starting with co
   - [x] Verified metadata collection (cwd, hostname, user, shell, git branch)
   - [x] Verified database storage and retrieval
 
-#### 1.5 Configuration System
-- [ ] Define config structure (pkg/config/config.go):
+#### 1.5 Configuration System ✅
+- [x] Define config structure (pkg/config/config.go):
   ```go
   type Config struct {
-      Database         string
-      Deduplicate      bool
-      DeduplicateStrategy string
-      IgnorePatterns   []string
+      Database    DatabaseConfig
+      Deduplicate DeduplicateConfig
+      Ignore      IgnoreConfig
   }
   ```
-- [ ] Implement config loading:
-  - [ ] Load from ~/.fh/config.yaml
-  - [ ] Merge with defaults
-  - [ ] Validate configuration
-- [ ] Use viper for config management
-- [ ] Write tests:
-  - [ ] Test default config
-  - [ ] Test loading from file
-  - [ ] Test invalid config handling
-  - [ ] Test config validation
+- [x] Implement config loading:
+  - [x] Load from ~/.fh/config.yaml
+  - [x] Merge with defaults (Default() function)
+  - [x] Validate configuration
+- [x] Use gopkg.in/yaml.v3 for YAML parsing (not viper, keeping it simple)
+- [x] Write tests:
+  - [x] Test default config
+  - [x] Test loading from file
+  - [x] Test invalid config handling
+  - [x] Test config validation
+  - [x] Test GetDedupConfig() conversion
+  - [x] Test Save() functionality
+- [x] Update main.go to use config:
+  - [x] Load config in handleSave()
+  - [x] Use config for database path
+  - [x] Use config for deduplication strategy
 
 **Deliverable**: Working storage layer with manual `--save` command
 
@@ -233,8 +238,8 @@ Build a modern shell history replacement in incremental phases, starting with co
 
 ### Tasks
 
-#### 2.1 Query Builder
-- [ ] Implement query filters (pkg/storage/query.go):
+#### 2.1 Query Builder ✅ (Completed in Phase 1.2)
+- [x] Implement query filters (pkg/storage/store.go):
   ```go
   type QueryFilters struct {
       Search    string   // Text search in command
@@ -246,13 +251,13 @@ Build a modern shell history replacement in incremental phases, starting with co
       Offset    int      // Pagination
   }
   ```
-- [ ] Build SQL WHERE clauses dynamically
-- [ ] Add full-text search support (FTS5 extension)
-- [ ] Write tests:
-  - [ ] Test each filter independently
-  - [ ] Test combined filters
-  - [ ] Test SQL injection prevention
-  - [ ] Test performance with large datasets
+- [x] Build SQL WHERE clauses dynamically (in Query() and DeleteByFilter())
+- [ ] Add full-text search support (FTS5 extension) - deferred
+- [x] Write tests:
+  - [x] Test each filter independently
+  - [x] Test combined filters
+  - [x] SQL injection prevented by using prepared statements
+  - [ ] Test performance with large datasets - deferred
 
 #### 2.2 Search Command
 - [ ] Implement search logic (pkg/search/search.go):
