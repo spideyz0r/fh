@@ -3,7 +3,6 @@ package storage
 import (
 	"database/sql"
 	"fmt"
-	"strings"
 )
 
 // Store defines the interface for history storage operations
@@ -257,42 +256,4 @@ func (db *DB) DeleteByFilter(filters QueryFilters) (int64, error) {
 	}
 
 	return rowsAffected, nil
-}
-
-// buildWhereClause is a helper to build WHERE clause from filters
-func buildWhereClause(filters QueryFilters) (string, []interface{}) {
-	var conditions []string
-	var args []interface{}
-
-	if filters.Search != "" {
-		conditions = append(conditions, "command LIKE ?")
-		args = append(args, "%"+filters.Search+"%")
-	}
-
-	if filters.Cwd != "" {
-		conditions = append(conditions, "cwd = ?")
-		args = append(args, filters.Cwd)
-	}
-
-	if filters.After > 0 {
-		conditions = append(conditions, "timestamp >= ?")
-		args = append(args, filters.After)
-	}
-
-	if filters.Before > 0 {
-		conditions = append(conditions, "timestamp <= ?")
-		args = append(args, filters.Before)
-	}
-
-	if filters.ExitCode != nil {
-		conditions = append(conditions, "exit_code = ?")
-		args = append(args, *filters.ExitCode)
-	}
-
-	where := ""
-	if len(conditions) > 0 {
-		where = " WHERE " + strings.Join(conditions, " AND ")
-	}
-
-	return where, args
 }
