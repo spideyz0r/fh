@@ -14,6 +14,7 @@ type Config struct {
 	Database    DatabaseConfig    `yaml:"database"`
 	Deduplicate DeduplicateConfig `yaml:"deduplicate"`
 	Ignore      IgnoreConfig      `yaml:"ignore"`
+	Search      SearchConfig      `yaml:"search"`
 }
 
 // DatabaseConfig holds database-related configuration
@@ -30,6 +31,11 @@ type DeduplicateConfig struct {
 // IgnoreConfig holds patterns for commands to ignore
 type IgnoreConfig struct {
 	Patterns []string `yaml:"patterns"` // Patterns to ignore (e.g., "^ls$", "^cd ")
+}
+
+// SearchConfig holds search-related configuration
+type SearchConfig struct {
+	Limit int `yaml:"limit"` // Max number of entries to load for FZF (0 = unlimited)
 }
 
 // Default returns the default configuration
@@ -56,6 +62,9 @@ func Default() *Config {
 				"^exit$",
 				"^clear$",
 			},
+		},
+		Search: SearchConfig{
+			Limit: 1000, // Default: load 1000 most recent entries (0 = unlimited)
 		},
 	}
 }

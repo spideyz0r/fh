@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/spideyz0r/fh/pkg/capture"
 	"github.com/spideyz0r/fh/pkg/config"
+	"github.com/spideyz0r/fh/pkg/search"
 	"github.com/spideyz0r/fh/pkg/storage"
 )
 
@@ -24,8 +26,9 @@ func main() {
 
 	// Check if we have arguments
 	if len(os.Args) < 2 {
-		printUsage()
-		os.Exit(0)
+		// No arguments - launch FZF search
+		handleSearch("")
+		return
 	}
 
 	// Parse the command
@@ -44,9 +47,9 @@ func main() {
 		printUsage()
 
 	default:
-		fmt.Fprintf(os.Stderr, "Unknown command: %s\n\n", os.Args[1])
-		printUsage()
-		os.Exit(1)
+		// Anything else is treated as a search query
+		query := strings.Join(os.Args[1:], " ")
+		handleSearch(query)
 	}
 }
 
@@ -102,6 +105,46 @@ func handleSave(command string, exitCode int, durationMs int64) {
 	}
 
 	// Success - silent exit (important for shell hooks)
+}
+
+func handleSearch(query string) {
+	// Load configuration
+	cfg, err := config.LoadDefault()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Open database
+	db, err := storage.Open(cfg.GetDatabasePath())
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error opening database: %v\n", err)
+		os.Exit(1)
+	}
+	defer db.Close()
+
+	// Search history with configured limit
+	limit := cfg.Search.Limit
+	entries, err := search.SearchAll(db, limit)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error searching history: %v\n", err)
+		os.Exit(1)
+	}
+
+	if len(entries) == 0 {
+		fmt.Fprintf(os.Stderr, "No history entries found\n")
+		os.Exit(0)
+	}
+
+	// Launch FZF
+	selected, err := search.FzfSearch(entries, query)
+	if err != nil {
+		// User cancelled or error - exit silently
+		os.Exit(0)
+	}
+
+	// Print selected command to stdout
+	fmt.Println(selected.Command)
 }
 
 func printUsage() {
