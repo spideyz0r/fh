@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -39,6 +40,9 @@ func main() {
 			os.Exit(1)
 		}
 		handleSave(*saveCommand, *saveExitCode, *saveDuration)
+
+	case "--init":
+		handleInit()
 
 	case "--version", "-v":
 		fmt.Printf("fh version %s\n", version)
@@ -147,6 +151,96 @@ func handleSearch(query string) {
 	fmt.Println(selected.Command)
 }
 
+func handleInit() {
+	fmt.Println("fh - Fast History Setup")
+	fmt.Println("=======================\n")
+
+	// Load or create config
+	cfg, err := config.LoadDefault()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Create .fh directory if it doesn't exist
+	home, err := os.UserHomeDir()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error getting home directory: %v\n", err)
+		os.Exit(1)
+	}
+
+	fhDir := filepath.Join(home, ".fh")
+	if err := os.MkdirAll(fhDir, 0755); err != nil {
+		fmt.Fprintf(os.Stderr, "Error creating .fh directory: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("✓ Created directory: %s\n", fhDir)
+
+	// Initialize database
+	db, err := storage.Open(cfg.GetDatabasePath())
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error initializing database: %v\n", err)
+		os.Exit(1)
+	}
+	db.Close()
+	fmt.Printf("✓ Initialized database: %s\n", cfg.GetDatabasePath())
+
+	// Save default config if it doesn't exist
+	configPath := filepath.Join(fhDir, "config.yaml")
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		if err := cfg.Save(configPath); err != nil {
+			fmt.Fprintf(os.Stderr, "Error saving config: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("✓ Created config file: %s\n", configPath)
+	} else {
+		fmt.Printf("✓ Config file already exists: %s\n", configPath)
+	}
+
+	// Detect shell
+	shell, err := capture.DetectShell()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error detecting shell: %v\n", err)
+		fmt.Fprintf(os.Stderr, "\nPlease set your SHELL environment variable.\n")
+		os.Exit(1)
+	}
+	fmt.Printf("✓ Detected shell: %s\n", shell)
+
+	// Get RC file
+	rcFile, err := capture.GetRCFile(shell)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error getting RC file: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Install hooks
+	result, err := capture.InstallHook(shell, rcFile)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error installing hooks: %v\n", err)
+		os.Exit(1)
+	}
+
+	if result.Installed {
+		fmt.Printf("✓ Installed shell hooks in: %s\n", result.RCFile)
+		fmt.Printf("✓ Backup created at: %s\n", result.BackupFile)
+		fmt.Println("\n" + strings.Repeat("=", 60))
+		fmt.Println("SUCCESS! fh is now installed.")
+		fmt.Println(strings.Repeat("=", 60))
+		fmt.Println("\nTo start using fh:")
+		fmt.Printf("  1. Restart your shell (or run: source %s)\n", result.RCFile)
+		fmt.Println("  2. Run commands as usual - they'll be captured automatically")
+		fmt.Println("  3. Press Ctrl-R to search your history with FZF")
+		fmt.Println("  4. Or run: fh")
+		fmt.Println("\nTo restore your original RC file:")
+		fmt.Printf("  cp %s %s\n", result.BackupFile, result.RCFile)
+	} else {
+		fmt.Printf("✓ Shell hooks already installed in: %s\n", result.RCFile)
+		fmt.Println("\nfh is already set up! Just restart your shell to use it.")
+	}
+
+	fmt.Println()
+}
+
 func printUsage() {
 	fmt.Printf(`fh - Fast History
 Version: %s
@@ -155,6 +249,8 @@ USAGE:
     fh [OPTIONS]
 
 OPTIONS:
+    --init              Initialize fh and setup shell integration
+
     --save              Save a command to history
         --cmd <cmd>         Command to save (required)
         --exit-code <code>  Exit code (default: 0)
@@ -164,8 +260,14 @@ OPTIONS:
     --help, -h          Show this help
 
 EXAMPLES:
+    # Initialize fh (first time setup)
+    fh --init
+
     # Save a command (typically called from shell hooks)
     fh --save --cmd "ls -la" --exit-code 0 --duration 150
+
+    # Search history with FZF
+    fh
 
     # Show version
     fh --version

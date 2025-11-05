@@ -349,8 +349,8 @@ Build a modern shell history replacement in incremental phases, starting with co
 
 ### Tasks
 
-#### 3.1 Shell Hook Generation
-- [ ] Create shell integration templates (shell/bash.sh):
+#### 3.1 Shell Hook Generation ✅
+- [x] Create shell integration templates (pkg/capture/shell/bash.sh):
   ```bash
   __fh_save() {
       # Capture command, exit code, metadata
@@ -359,33 +359,35 @@ Build a modern shell history replacement in incremental phases, starting with co
   PROMPT_COMMAND="__fh_save; $PROMPT_COMMAND"
   bind '"\C-r": "..."'  # Bind Ctrl-R to fh
   ```
-- [ ] Create zsh integration (shell/zsh.sh):
+- [x] Create zsh integration (pkg/capture/shell/zsh.sh):
   ```zsh
   precmd_functions+=(__fh_save)
   bindkey '^r' fh-widget
   ```
-- [ ] Implement hook generator (pkg/capture/hook.go):
-  - [ ] Detect current shell
-  - [ ] Generate appropriate hooks
-  - [ ] Handle edge cases (existing PROMPT_COMMAND, etc.)
+- [x] Implement hook generator (pkg/capture/hook.go):
+  - [x] Detect current shell (DetectShell)
+  - [x] Generate appropriate hooks (GetHookContent)
+  - [x] Handle edge cases (IsHookInstalled, idempotent)
+  - [x] Embedded shell scripts using go:embed
 
-#### 3.2 Init Command
-- [ ] Implement --init (cmd/init.go):
-  - [ ] Create ~/.fh/ directory
-  - [ ] Initialize database
-  - [ ] Create default config.yaml
-  - [ ] Detect shell (bash/zsh)
-  - [ ] Backup existing rc files
-  - [ ] Append hooks to rc files
-  - [ ] Import existing history (Phase 3.3)
-  - [ ] Print setup instructions
-- [ ] Add --force flag to reinitialize
-- [ ] Add --dry-run to preview changes
+#### 3.2 Init Command ✅
+- [x] Implement --init (handleInit in main.go):
+  - [x] Create ~/.fh/ directory
+  - [x] Initialize database
+  - [x] Create default config.yaml
+  - [x] Detect shell (bash/zsh)
+  - [x] Backup existing rc files
+  - [x] Append hooks to rc files
+  - [x] Print setup instructions with backup location
+  - [x] Import existing history - deferred to Phase 3.3
+- [x] Idempotency tested (running --init twice doesn't duplicate hooks)
+- [ ] Add --force flag to reinitialize - deferred
+- [ ] Add --dry-run to preview changes - deferred
 - [ ] Write tests:
-  - [ ] Test directory creation
-  - [ ] Test rc file modification
-  - [ ] Test backup creation
-  - [ ] Test idempotency (running --init twice)
+  - [ ] Test directory creation - TODO
+  - [ ] Test rc file modification - TODO (manually tested)
+  - [ ] Test backup creation - TODO (manually tested)
+  - [ ] Test idempotency - TODO (manually tested)
 
 #### 3.3 Import Existing History
 - [ ] Implement bash history parser (pkg/importer/bash.go):
@@ -1038,6 +1040,42 @@ fh --save --cmd "..." --exit-code 0 --cwd /path
 **Total**: 25-38 days (5-8 weeks part-time)
 
 **MVP (Phases 0-3)**: 11-17 days (2-3.5 weeks)
+
+---
+
+## TODO / Future Improvements
+
+This section tracks improvements and features that are deferred for future releases.
+
+### FZF Improvements
+- [ ] **PageUp/PageDown support in FZF**
+  - **Issue**: go-fzf library doesn't support multi-line scrolling (PageUp/PageDown only moves 1 line)
+  - **Current workaround**: Added `pgup`/`pgdown` to keybindings, but they behave like arrow keys
+  - **Potential solutions**:
+    1. Switch to native fzf binary (requires external dependency)
+    2. Contribute PageUp/PageDown feature to go-fzf library
+    3. Fork go-fzf and add the feature ourselves
+    4. Implement custom pager with proper page scrolling
+  - **Priority**: Medium (quality of life improvement)
+  - **Tracked in**: Phase 7 (Polish) or post-v1.0
+
+### Shell Integration
+- [ ] Fish shell support (Phase 3 was deferred)
+- [ ] PowerShell support for Windows
+
+### Performance
+- [ ] Full-text search with FTS5 extension (deferred from Phase 2.1)
+- [ ] Performance testing with large datasets (100k+ entries)
+
+### Testing
+- [ ] Search package unit tests (deferred from Phase 2)
+- [ ] CLI integration tests (deferred from Phase 2)
+- [ ] Shell hook integration tests (deferred from Phase 3)
+
+### Documentation
+- [ ] Animated GIFs/screenshots for README
+- [ ] Man page generation
+- [ ] Website (GitHub Pages)
 
 ---
 

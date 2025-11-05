@@ -24,9 +24,18 @@ func FzfSearch(entries []*storage.HistoryEntry, preFilter string) (*storage.Hist
 		}
 	}
 
-	// Create FZF instance
+	// Create FZF instance with custom keybindings
+	// Note: go-fzf doesn't support PageUp/PageDown natively
+	// TODO: Consider switching to native fzf binary for full feature support
 	f, err := fzf.New(
 		fzf.WithNoLimit(true), // Show all results
+		fzf.WithKeyMap(fzf.KeyMap{
+			Up:     []string{"up", "ctrl-k", "ctrl-p", "pgup"},     // Added pgup
+			Down:   []string{"down", "ctrl-j", "ctrl-n", "pgdown"}, // Added pgdown
+			Toggle: []string{"tab"},
+			Choose: []string{"enter"},
+			Abort:  []string{"esc", "ctrl-c"},
+		}),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create fzf: %w", err)

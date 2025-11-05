@@ -13,7 +13,11 @@
 
 **fh** is currently under active development. Check back soon for the first release!
 
-**Current Status**: Phase 0 - Project Foundation
+**Current Status**: Phase 3 - Shell Integration (In Progress)
+- ✅ Phase 0: Project Foundation
+- ✅ Phase 1: Core Storage & Capture
+- ✅ Phase 2: Search & FZF Integration
+- 🔄 Phase 3: Shell Integration (bash/zsh hooks, --init command)
 
 ---
 
@@ -46,6 +50,36 @@
 - [ ] Encrypted remote backups (SFTP)
 - [ ] AI-powered semantic search
 - [ ] Multi-machine sync
+
+---
+
+## Requirements
+
+- **Bash**: Version 4.0 or later (for bash users)
+- **Zsh**: Any recent version
+- **Go**: 1.21+ (only needed for building from source)
+
+### macOS Users
+
+macOS ships with bash 3.2 which is **not compatible** with fh. You must upgrade to bash 4.0+:
+
+```bash
+# Install bash 5.x via Homebrew
+brew install bash
+
+# Add the new bash to allowed shells
+echo /opt/homebrew/bin/bash | sudo tee -a /etc/shells
+
+# Change your default shell
+chsh -s /opt/homebrew/bin/bash
+
+# Restart your terminal
+```
+
+Alternatively, switch to zsh (which comes with macOS and works out of the box):
+```bash
+chsh -s /bin/zsh
+```
 
 ---
 
