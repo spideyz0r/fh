@@ -259,85 +259,87 @@ Build a modern shell history replacement in incremental phases, starting with co
   - [x] SQL injection prevented by using prepared statements
   - [ ] Test performance with large datasets - deferred
 
-#### 2.2 Search Command
-- [ ] Implement search logic (pkg/search/search.go):
-  - [ ] Query database with filters
-  - [ ] Format results for display
-  - [ ] Sort by relevance/timestamp
-- [ ] Handle search query parsing:
-  - [ ] Plain text search
-  - [ ] Regex support (optional)
-  - [ ] Case-insensitive by default
+#### 2.2 Search Command ✅
+- [x] Implement search logic (pkg/search/search.go):
+  - [x] Query database with filters
+  - [x] Search() and SearchAll() functions
+  - [x] SearchWithFilters() for custom queries
+  - [x] Results sorted by timestamp DESC (most recent first)
+- [x] Handle search query parsing:
+  - [x] Plain text search (case-insensitive)
+  - [ ] Regex support - deferred
 - [ ] Write tests:
-  - [ ] Test search accuracy
-  - [ ] Test result ordering
-  - [ ] Test empty results
-  - [ ] Test special characters in search
+  - [ ] Test search accuracy - TODO
+  - [ ] Test result ordering - TODO
+  - [ ] Test empty results - TODO
 
-#### 2.3 FZF Integration
-- [ ] Research FZF integration options:
-  - [ ] Option 1: Shell out to fzf binary
-  - [ ] Option 2: Use go-fzf library
-- [ ] Implement FZF search (pkg/search/fzf.go):
-  - [ ] Format entries for FZF: `timestamp | cwd | command`
-  - [ ] Configure FZF options:
-    - [ ] --tac (reverse order)
-    - [ ] --no-sort (preserve order)
-    - [ ] --preview (show details)
-    - [ ] --multi (select multiple)
-  - [ ] Handle FZF output (selected command)
-  - [ ] Return selected command to stdout
-- [ ] Implement preview window (pkg/search/preview.go):
-  - [ ] Format entry details nicely
-  - [ ] Show all metadata
+#### 2.3 FZF Integration ✅
+- [x] Research FZF integration options:
+  - [x] Chose github.com/koki-develop/go-fzf (pure Go, used in kubesw)
+  - [x] No external fzf binary required
+- [x] Implement FZF search (pkg/search/fzf.go):
+  - [x] Format entries for FZF: `timestamp | cwd | duration | exit_code | command`
+  - [x] FormatEntry() function with proper formatting
+  - [x] FzfSearch() launches interactive selector
+  - [x] Pre-filter support (filters before FZF)
+  - [x] filterEntries() for query-based filtering
+  - [x] Handle FZF output (selected command)
+  - [x] Return selected HistoryEntry
+- [x] Configure FZF options:
+  - [x] WithNoLimit(true) - show all results
+  - [ ] Preview window - deferred
+  - [ ] Multi-select - deferred
+- [x] ExtractCommand() utility for parsing formatted entries
 - [ ] Write tests:
-  - [ ] Test FZF output formatting
-  - [ ] Test FZF binary detection
-  - [ ] Test fallback if FZF not installed
-  - [ ] Test selection parsing
+  - [ ] Test FZF output formatting - TODO
+  - [ ] Test filterEntries() - TODO
+  - [ ] Test selection parsing - TODO
 
-#### 2.4 Main CLI Entry Point
-- [ ] Implement main.go with flag parsing:
-  - [ ] No args → FZF search
-  - [ ] Args without flags → FZF search with pre-filter
-  - [ ] --save → Save command (from Phase 1)
-  - [ ] --init → Placeholder for Phase 3
-  - [ ] --help → Show usage
-  - [ ] --version → Show version
-- [ ] Implement clean flag parsing (no Cobra):
-  ```go
-  // Detect flags vs search query
-  if hasPrefix("--") {
-      handleFlag()
-  } else {
-      handleSearch(args)
-  }
-  ```
+#### 2.4 Main CLI Entry Point ✅
+- [x] Implement main.go with flag parsing:
+  - [x] No args → FZF search
+  - [x] Args without flags → FZF search with pre-filter (e.g., `fh kubectl`)
+  - [x] --save → Save command (from Phase 1)
+  - [x] --help, -h → Show usage
+  - [x] --version, -v → Show version
+  - [ ] --init → Placeholder for Phase 3 - TODO
+- [x] Implement clean flag parsing (no Cobra):
+  - [x] Switch statement for known flags
+  - [x] Default case treats args as search query
+  - [x] handleSearch() function for FZF browsing
+- [x] Print selected command to stdout (for shell integration)
 - [ ] Write tests:
-  - [ ] Test flag detection
-  - [ ] Test argument parsing
-  - [ ] Test help output
-  - [ ] Test version output
+  - [ ] Test flag detection - TODO (CLI tests usually manual)
+  - [ ] Test argument parsing - TODO
+  - [ ] Test help output - TODO
+  - [ ] Test version output - TODO
 
-#### 2.5 Error Handling & User Experience
-- [ ] Implement graceful error messages:
-  - [ ] Database not found → suggest --init
-  - [ ] FZF not installed → suggest installation
-  - [ ] Empty history → friendly message
-- [ ] Add debug mode (--debug flag):
-  - [ ] Show SQL queries
-  - [ ] Show performance metrics
-  - [ ] Verbose logging
-- [ ] Write tests for error cases
+#### 2.5 Error Handling & User Experience 🔄
+- [x] Implement graceful error messages:
+  - [x] Config load errors
+  - [x] Database errors
+  - [x] Empty history → friendly message
+  - [x] FZF cancellation → silent exit
+  - [ ] Database not found → suggest --init - TODO
+- [ ] Add debug mode (--debug flag) - TODO
+- [ ] Write tests for error cases - TODO
 
-**Deliverable**: Working `fh` and `fh <query>` with FZF
+**Deliverable**: Working `fh` and `fh <query>` with FZF ✅
 
 **Testing Milestone**: Coverage >80% for pkg/search, main.go
+- pkg/search: No tests yet (TODO)
+- main.go: 0% (CLI, tested manually)
+
+**Current Status**:
+- ✅ Interactive FZF search working
+- ✅ Pre-filter working (`fh kubectl`)
+- ✅ Config-based search limit
+- ✅ 52 tests passing (no search tests yet)
 
 **Update README.md**:
-- [ ] Add installation instructions (go install)
-- [ ] Add usage examples with screenshots/gifs
-- [ ] Document FZF requirement
+- [ ] Add installation instructions (go install) - TODO
+- [ ] Add usage examples with screenshots/gifs - TODO
+- [ ] Document configuration options - TODO
 
 ---
 
