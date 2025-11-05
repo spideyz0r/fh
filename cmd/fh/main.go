@@ -10,6 +10,7 @@ import (
 
 	"github.com/spideyz0r/fh/pkg/capture"
 	"github.com/spideyz0r/fh/pkg/config"
+	"github.com/spideyz0r/fh/pkg/importer"
 	"github.com/spideyz0r/fh/pkg/search"
 	"github.com/spideyz0r/fh/pkg/storage"
 )
@@ -221,24 +222,32 @@ func handleInit() {
 	}
 
 	if result.Installed {
-		fmt.Printf("✓ Installed shell hooks in: %s\n", result.RCFile)
-		fmt.Printf("✓ Backup created at: %s\n", result.BackupFile)
-		fmt.Println("\n" + strings.Repeat("=", 60))
-		fmt.Println("SUCCESS! fh is now installed.")
-		fmt.Println(strings.Repeat("=", 60))
-		fmt.Println("\nTo start using fh:")
-		fmt.Printf("  1. Restart your shell (or run: source %s)\n", result.RCFile)
-		fmt.Println("  2. Run commands as usual - they'll be captured automatically")
-		fmt.Println("  3. Press Ctrl-R to search your history with FZF")
-		fmt.Println("  4. Or run: fh")
-		fmt.Println("\nTo restore your original RC file:")
-		fmt.Printf("  cp %s %s\n", result.BackupFile, result.RCFile)
+		fmt.Printf("✓ Installed shell hooks (backup: %s)\n", result.BackupFile)
 	} else {
-		fmt.Printf("✓ Shell hooks already installed in: %s\n", result.RCFile)
-		fmt.Println("\nfh is already set up! Just restart your shell to use it.")
+		fmt.Printf("✓ Shell hooks already installed\n")
 	}
 
-	fmt.Println()
+	// Import existing history
+	db, err = storage.Open(cfg.GetDatabasePath())
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error opening database: %v\n", err)
+		os.Exit(1)
+	}
+	defer db.Close()
+
+	dedupConfig := cfg.GetDedupConfig()
+	importResult, err := importer.ImportHistory(db, shell, dedupConfig)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: Could not import history: %v\n", err)
+	} else if importResult.ImportedEntries > 0 {
+		fmt.Printf("✓ Imported %d commands\n", importResult.ImportedEntries)
+	}
+
+	// Print success message
+	successMsg := "SUCCESS! Restart your shell and press Ctrl-R to search."
+	fmt.Println("\n" + strings.Repeat("=", len(successMsg)))
+	fmt.Println(successMsg)
+	fmt.Println(strings.Repeat("=", len(successMsg)) + "\n")
 }
 
 func printUsage() {
