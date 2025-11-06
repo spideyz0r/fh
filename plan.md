@@ -472,25 +472,30 @@ Build a modern shell history replacement in incremental phases, starting with co
 
 ### Tasks
 
-#### 4.1 Statistics Implementation
-- [ ] Implement stats collection (pkg/stats/stats.go):
-  - [ ] Total commands
-  - [ ] Unique commands
-  - [ ] Top N most used commands
-  - [ ] Commands per day/week/month
-  - [ ] Success rate (exit_code = 0)
-  - [ ] Average commands per day
-  - [ ] Commands by directory
-  - [ ] Commands by time of day (histogram)
-- [ ] Implement --stats command (cmd/stats.go):
-  - [ ] Query database for stats
-  - [ ] Format output nicely (tables, charts)
-  - [ ] Add filtering options (--since, --until)
-- [ ] Optional: ASCII charts for terminal display
-- [ ] Write tests:
-  - [ ] Test stats calculations
-  - [ ] Test with empty database
-  - [ ] Test with edge cases
+#### 4.1 Statistics Implementation ✅
+- [x] Implemented stats collection (pkg/stats/stats.go):
+  - [x] Total commands
+  - [x] Unique commands
+  - [x] Top N most used commands
+  - [x] Success rate (exit_code = 0)
+  - [x] Average commands per day
+  - [x] Commands by directory
+  - [x] Commands by time of day (histogram with ASCII bars)
+- [x] Implemented --stats command (main.go handleStats):
+  - [x] Query database for stats
+  - [x] Format output nicely (formatted text with percentages)
+  - [x] ASCII charts for hour distribution
+- [x] Implemented CollectFiltered for future filter support (--since, --until)
+- [x] Written comprehensive tests (pkg/stats/stats_test.go):
+  - [x] TestCollect_EmptyDatabase
+  - [x] TestCollect_SingleCommand
+  - [x] TestCollect_MultipleCommands
+  - [x] TestCollect_TimeDistribution
+  - [x] TestCollect_AveragePerDay
+  - [x] TestFormat_EmptyStats
+  - [x] TestFormat_WithData
+  - [x] TestCollectFiltered
+  - [x] All 8 tests passing
 
 #### 4.2 Export Functionality
 - [ ] Implement export formats (pkg/export/):

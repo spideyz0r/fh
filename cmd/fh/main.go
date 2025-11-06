@@ -12,6 +12,7 @@ import (
 	"github.com/spideyz0r/fh/pkg/config"
 	"github.com/spideyz0r/fh/pkg/importer"
 	"github.com/spideyz0r/fh/pkg/search"
+	"github.com/spideyz0r/fh/pkg/stats"
 	"github.com/spideyz0r/fh/pkg/storage"
 )
 
@@ -44,6 +45,9 @@ func main() {
 
 	case "--init":
 		handleInit()
+
+	case "--stats":
+		handleStats()
 
 	case "--version", "-v":
 		fmt.Printf("fh version %s\n", version)
@@ -250,6 +254,34 @@ func handleInit() {
 	fmt.Println(strings.Repeat("=", len(successMsg)) + "\n")
 }
 
+func handleStats() {
+	// Load configuration
+	cfg, err := config.LoadDefault()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Open database
+	db, err := storage.Open(cfg.GetDatabasePath())
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error opening database: %v\n", err)
+		os.Exit(1)
+	}
+	defer db.Close()
+
+	// Collect statistics
+	statistics, err := stats.Collect(db)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error collecting statistics: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Format and print
+	output := statistics.Format(10) // Top 10 commands
+	fmt.Print(output)
+}
+
 func printUsage() {
 	fmt.Printf(`fh - Fast History
 Version: %s
@@ -265,6 +297,8 @@ OPTIONS:
         --exit-code <code>  Exit code (default: 0)
         --duration <ms>     Duration in milliseconds (default: 0)
 
+    --stats             Show statistics about your command history
+
     --version, -v       Show version
     --help, -h          Show this help
 
@@ -277,6 +311,9 @@ EXAMPLES:
 
     # Search history with FZF
     fh
+
+    # Show statistics
+    fh --stats
 
     # Show version
     fh --version
