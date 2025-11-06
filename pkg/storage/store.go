@@ -17,13 +17,13 @@ type Store interface {
 
 // QueryFilters defines filters for querying history
 type QueryFilters struct {
-	Search    string // Text search in command
-	Cwd       string // Filter by directory
-	After     int64  // After timestamp
-	Before    int64  // Before timestamp
-	ExitCode  *int   // Filter by exit code
-	Limit     int    // Max results
-	Offset    int    // Pagination offset
+	Search   string // Text search in command
+	Cwd      string // Filter by directory
+	After    int64  // After timestamp
+	Before   int64  // Before timestamp
+	ExitCode *int   // Filter by exit code
+	Limit    int    // Max results
+	Offset   int    // Pagination offset
 }
 
 // Insert adds a new history entry to the database

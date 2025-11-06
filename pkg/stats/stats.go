@@ -10,15 +10,15 @@ import (
 
 // Stats contains aggregated statistics about command history
 type Stats struct {
-	TotalCommands   int64
-	UniqueCommands  int64
-	SuccessRate     float64
-	AvgPerDay       float64
-	TopCommands     []CommandCount
-	CommandsByDir   []DirectoryCount
+	TotalCommands    int64
+	UniqueCommands   int64
+	SuccessRate      float64
+	AvgPerDay        float64
+	TopCommands      []CommandCount
+	CommandsByDir    []DirectoryCount
 	TimeDistribution map[int]int // hour -> count
-	FirstCommand    time.Time
-	LastCommand     time.Time
+	FirstCommand     time.Time
+	LastCommand      time.Time
 }
 
 // CommandCount represents a command and how many times it was executed

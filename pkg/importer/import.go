@@ -55,14 +55,14 @@ func importBashHistory(db *storage.DB, dedupConfig storage.DedupConfig) (*Import
 		historyEntry := &storage.HistoryEntry{
 			Timestamp:  entry.Timestamp,
 			Command:    entry.Command,
-			Cwd:        meta.Cwd,        // Use current cwd as we don't have historical cwd
-			ExitCode:   0,                // Unknown for historical entries
+			Cwd:        meta.Cwd, // Use current cwd as we don't have historical cwd
+			ExitCode:   0,        // Unknown for historical entries
 			Hostname:   meta.Hostname,
 			User:       meta.User,
 			Shell:      string(capture.ShellBash),
-			DurationMs: 0,                // Unknown for bash history
-			GitBranch:  "",               // Unknown for historical entries
-			SessionID:  "",               // Not applicable for imports
+			DurationMs: 0,  // Unknown for bash history
+			GitBranch:  "", // Unknown for historical entries
+			SessionID:  "", // Not applicable for imports
 		}
 
 		// Insert with deduplication
@@ -104,14 +104,14 @@ func importZshHistory(db *storage.DB, dedupConfig storage.DedupConfig) (*ImportR
 		historyEntry := &storage.HistoryEntry{
 			Timestamp:  entry.Timestamp,
 			Command:    entry.Command,
-			Cwd:        meta.Cwd,        // Use current cwd as we don't have historical cwd
-			ExitCode:   0,                // Unknown for historical entries
+			Cwd:        meta.Cwd, // Use current cwd as we don't have historical cwd
+			ExitCode:   0,        // Unknown for historical entries
 			Hostname:   meta.Hostname,
 			User:       meta.User,
 			Shell:      string(capture.ShellZsh),
 			DurationMs: entry.Duration * 1000, // Convert seconds to milliseconds
-			GitBranch:  "",                     // Unknown for historical entries
-			SessionID:  "",                     // Not applicable for imports
+			GitBranch:  "",                    // Unknown for historical entries
+			SessionID:  "",                    // Not applicable for imports
 		}
 
 		// Insert with deduplication

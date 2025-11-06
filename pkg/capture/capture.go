@@ -13,10 +13,10 @@ import (
 
 // Cache for metadata that doesn't change
 var (
-	metadataMutex   sync.Once
-	cachedHostname  string
-	cachedUser      string
-	cachedShell     string
+	metadataMutex  sync.Once
+	cachedHostname string
+	cachedUser     string
+	cachedShell    string
 )
 
 // Metadata contains information about the command execution environment

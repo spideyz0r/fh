@@ -12,9 +12,9 @@ import (
 
 // ZshHistoryEntry represents a parsed entry from zsh history
 type ZshHistoryEntry struct {
-	Timestamp  int64
-	Duration   int64 // in seconds
-	Command    string
+	Timestamp int64
+	Duration  int64 // in seconds
+	Command   string
 }
 
 // ParseZshHistory parses ~/.zsh_history and returns all entries

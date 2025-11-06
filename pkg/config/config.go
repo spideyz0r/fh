@@ -13,9 +13,9 @@ import (
 
 // Cache for config to avoid repeated file reads
 var (
-	cacheMutex   sync.RWMutex
-	cachedConfig *Config
-	cachedPath   string
+	cacheMutex    sync.RWMutex
+	cachedConfig  *Config
+	cachedPath    string
 	cachedModTime time.Time
 )
 

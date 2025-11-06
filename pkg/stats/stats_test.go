@@ -83,10 +83,10 @@ func TestCollect_MultipleCommands(t *testing.T) {
 	}{
 		{"echo test", 0, "/tmp"},
 		{"ls -la", 0, "/tmp"},
-		{"echo test", 0, "/home"},     // Duplicate command
-		{"git status", 1, "/tmp"},     // Failed command
+		{"echo test", 0, "/home"}, // Duplicate command
+		{"git status", 1, "/tmp"}, // Failed command
 		{"echo hello", 0, "/home"},
-		{"echo test", 0, "/tmp"},      // Another duplicate
+		{"echo test", 0, "/tmp"}, // Another duplicate
 	}
 
 	for i, cmd := range commands {
@@ -109,7 +109,7 @@ func TestCollect_MultipleCommands(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, int64(6), stats.TotalCommands)
-	assert.Equal(t, int64(4), stats.UniqueCommands) // echo test, ls -la, git status, echo hello
+	assert.Equal(t, int64(4), stats.UniqueCommands)             // echo test, ls -la, git status, echo hello
 	assert.Equal(t, 83.3, roundToOneDecimal(stats.SuccessRate)) // 5/6 = 83.33%
 
 	// Check top commands (should be sorted by count)
@@ -304,7 +304,7 @@ func TestCollectFiltered(t *testing.T) {
 	// Should only count successful commands
 	// i%3==0 fails: 0, 3, 6, 9 = 4 failures, so 10 - 4 = 6 successful
 	assert.Equal(t, int64(6), stats.TotalCommands)
-	assert.Equal(t, 100.0, stats.SuccessRate)     // All filtered commands are successful
+	assert.Equal(t, 100.0, stats.SuccessRate) // All filtered commands are successful
 }
 
 // Helper function to round to one decimal place

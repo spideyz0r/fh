@@ -164,8 +164,8 @@ func TestExportCSV(t *testing.T) {
 	// Verify data
 	for i := 1; i < len(records); i++ {
 		record := records[i]
-		assert.NotEmpty(t, record[0]) // id
-		assert.NotEmpty(t, record[1]) // timestamp
+		assert.NotEmpty(t, record[0])                                  // id
+		assert.NotEmpty(t, record[1])                                  // timestamp
 		assert.Contains(t, []string{"echo test", "ls -la"}, record[2]) // command
 	}
 }
