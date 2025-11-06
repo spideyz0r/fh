@@ -12,6 +12,13 @@ __fh_save() {
         return $exit_code
     fi
 
+    # Skip if this is the same command as last time (prevents duplicates)
+    # This handles both: Ctrl-R without execution, and pressing Enter on empty lines
+    if [[ "$last_cmd" == "${__fh_last_cmd:-}" ]]; then
+        return $exit_code
+    fi
+    __fh_last_cmd="$last_cmd"
+
     # Save to fh in background to avoid blocking the prompt
     {
         fh --save \

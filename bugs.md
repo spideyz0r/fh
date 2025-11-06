@@ -8,6 +8,50 @@
 
 ## Fixed Bugs
 
+### Bug #3: Ctrl-R selected commands saved without execution
+**Status**: Fixed
+**Priority**: High
+**Reported**: 2025-11-05
+**Affects**: bash shell integration (Ctrl-R widget)
+
+**Symptom**:
+When using Ctrl-R to search history and selecting a command but NOT executing it (pressing Escape or Ctrl-C), the selected command still gets saved to fh history. This can result in duplicate entries if the same command is selected multiple times without execution.
+
+**Root Cause**:
+1. `__fh_widget()` populates `READLINE_LINE` with the selected command
+2. Bash automatically adds this to its own history when the widget returns
+3. `PROMPT_COMMAND` runs `__fh_save()` which reads from bash history
+4. The command gets saved to fh even though it was never executed
+
+**Impact**:
+- Pollutes history with commands that were never run
+- Creates duplicate entries
+- Confusing for users reviewing their history
+
+**Solution Implemented**:
+Track the last saved command (`__fh_last_cmd`) and skip saving if it's identical to the current command. This simple approach handles multiple scenarios:
+- Ctrl-R + Ctrl-C (command selected but not executed)
+- Pressing Enter on empty prompts (bash keeps last command in history)
+- Prevents any duplicate consecutive saves
+
+```bash
+# In __fh_save():
+if [[ "$last_cmd" == "${__fh_last_cmd:-}" ]]; then
+    return $exit_code
+fi
+__fh_last_cmd="$last_cmd"
+```
+
+**Files Modified**:
+- `pkg/capture/shell/bash.sh` - Added deduplication logic
+- `pkg/capture/shell/zsh.sh` - Added deduplication logic, fixed `fc -ln -1` usage
+
+**Fixed in**: Bug fix session (2025-11-05)
+
+---
+
+## Fixed Bugs
+
 ### Bug #2: Ctrl-R selection doesn't populate command line (bash)
 **Status**: Fixed
 **Priority**: High
