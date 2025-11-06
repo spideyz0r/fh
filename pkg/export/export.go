@@ -1,11 +1,14 @@
 package export
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/spideyz0r/fh/pkg/storage"
@@ -164,4 +167,215 @@ func ParseFormat(s string) (Format, error) {
 	default:
 		return "", fmt.Errorf("unknown format: %s (supported: text, json, csv)", s)
 	}
+}
+
+// Import imports history from a reader with the given format
+func Import(db *storage.DB, r io.Reader, format Format, dedupConfig storage.DedupConfig) (int, error) {
+	switch format {
+	case FormatText:
+		return importText(db, r, dedupConfig)
+	case FormatJSON:
+		return importJSON(db, r, dedupConfig)
+	case FormatCSV:
+		return importCSV(db, r, dedupConfig)
+	default:
+		return 0, fmt.Errorf("unsupported import format: %s", format)
+	}
+}
+
+// importText imports from plain text format (one command per line)
+func importText(db *storage.DB, r io.Reader, dedupConfig storage.DedupConfig) (int, error) {
+	scanner := bufio.NewScanner(r)
+	count := 0
+
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+
+		entry := &storage.HistoryEntry{
+			Timestamp:  time.Now().Unix(),
+			Command:    line,
+			Cwd:        "",
+			ExitCode:   0,
+			Hostname:   "",
+			User:       "",
+			Shell:      "",
+			DurationMs: 0,
+			GitBranch:  "",
+			SessionID:  "",
+		}
+
+		if err := db.InsertWithDedup(entry, dedupConfig); err != nil {
+			// Skip entries that fail to insert (e.g., duplicates)
+			continue
+		}
+		count++
+	}
+
+	if err := scanner.Err(); err != nil {
+		return count, fmt.Errorf("error reading text: %w", err)
+	}
+
+	return count, nil
+}
+
+// importJSON imports from JSON format
+func importJSON(db *storage.DB, r io.Reader, dedupConfig storage.DedupConfig) (int, error) {
+	var entries []*storage.HistoryEntry
+
+	decoder := json.NewDecoder(r)
+	if err := decoder.Decode(&entries); err != nil {
+		return 0, fmt.Errorf("failed to parse JSON: %w", err)
+	}
+
+	count := 0
+	for _, entry := range entries {
+		// Validate entry
+		if entry.Command == "" {
+			continue
+		}
+
+		// Ensure timestamp is set
+		if entry.Timestamp == 0 {
+			entry.Timestamp = time.Now().Unix()
+		}
+
+		if err := db.InsertWithDedup(entry, dedupConfig); err != nil {
+			// Skip entries that fail to insert
+			continue
+		}
+		count++
+	}
+
+	return count, nil
+}
+
+// importCSV imports from CSV format
+func importCSV(db *storage.DB, r io.Reader, dedupConfig storage.DedupConfig) (int, error) {
+	reader := csv.NewReader(r)
+
+	// Read header
+	header, err := reader.Read()
+	if err != nil {
+		return 0, fmt.Errorf("failed to read CSV header: %w", err)
+	}
+
+	// Build column index map
+	colMap := make(map[string]int)
+	for i, col := range header {
+		colMap[col] = i
+	}
+
+	// Verify required columns
+	if _, ok := colMap["command"]; !ok {
+		return 0, fmt.Errorf("CSV missing required column: command")
+	}
+
+	count := 0
+	for {
+		record, err := reader.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return count, fmt.Errorf("error reading CSV: %w", err)
+		}
+
+		// Parse entry from CSV row
+		entry := &storage.HistoryEntry{}
+
+		// Command (required)
+		if idx, ok := colMap["command"]; ok && idx < len(record) {
+			entry.Command = record[idx]
+		}
+		if entry.Command == "" {
+			continue
+		}
+
+		// Timestamp (parse from ISO 8601 if present)
+		if idx, ok := colMap["timestamp"]; ok && idx < len(record) {
+			// Try to parse as ISO 8601 first
+			if t, err := time.Parse(time.RFC3339, record[idx]); err == nil {
+				entry.Timestamp = t.Unix()
+			} else if ts, err := strconv.ParseInt(record[idx], 10, 64); err == nil {
+				// Fallback to Unix timestamp
+				entry.Timestamp = ts
+			}
+		}
+		if entry.Timestamp == 0 {
+			entry.Timestamp = time.Now().Unix()
+		}
+
+		// Other fields
+		if idx, ok := colMap["cwd"]; ok && idx < len(record) {
+			entry.Cwd = record[idx]
+		}
+		if idx, ok := colMap["exit_code"]; ok && idx < len(record) {
+			if code, err := strconv.Atoi(record[idx]); err == nil {
+				entry.ExitCode = code
+			}
+		}
+		if idx, ok := colMap["hostname"]; ok && idx < len(record) {
+			entry.Hostname = record[idx]
+		}
+		if idx, ok := colMap["user"]; ok && idx < len(record) {
+			entry.User = record[idx]
+		}
+		if idx, ok := colMap["shell"]; ok && idx < len(record) {
+			entry.Shell = record[idx]
+		}
+		if idx, ok := colMap["duration_ms"]; ok && idx < len(record) {
+			if dur, err := strconv.ParseInt(record[idx], 10, 64); err == nil {
+				entry.DurationMs = dur
+			}
+		}
+		if idx, ok := colMap["git_branch"]; ok && idx < len(record) {
+			entry.GitBranch = record[idx]
+		}
+		if idx, ok := colMap["session_id"]; ok && idx < len(record) {
+			entry.SessionID = record[idx]
+		}
+
+		if err := db.InsertWithDedup(entry, dedupConfig); err != nil {
+			// Skip entries that fail to insert
+			continue
+		}
+		count++
+	}
+
+	return count, nil
+}
+
+// DetectFormat attempts to auto-detect the format from file content
+func DetectFormat(r io.Reader) (Format, io.Reader, error) {
+	// Read first few bytes to detect format
+	buf := make([]byte, 512)
+	n, err := r.Read(buf)
+	if err != nil && err != io.EOF {
+		return "", nil, fmt.Errorf("failed to read data: %w", err)
+	}
+
+	// Create a new reader with buffered data
+	newReader := io.MultiReader(bytes.NewReader(buf[:n]), r)
+
+	content := string(buf[:n])
+
+	// Detect JSON (starts with [ or {)
+	trimmed := strings.TrimSpace(content)
+	if strings.HasPrefix(trimmed, "[") || strings.HasPrefix(trimmed, "{") {
+		return FormatJSON, newReader, nil
+	}
+
+	// Detect CSV (has comma-separated values with headers)
+	if strings.Contains(content, ",") && strings.Contains(content, "command") {
+		lines := strings.Split(content, "\n")
+		if len(lines) > 0 && strings.Contains(lines[0], ",") {
+			return FormatCSV, newReader, nil
+		}
+	}
+
+	// Default to text
+	return FormatText, newReader, nil
 }

@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/spideyz0r/fh/pkg/storage"
 )
 
 // TempDir creates a temporary directory for testing and returns a cleanup function
@@ -61,4 +63,19 @@ func AssertEqual(t *testing.T, got, want interface{}) {
 	if got != want {
 		t.Fatalf("got %v, want %v", got, want)
 	}
+}
+
+// NewTestDB creates a test database in a temporary directory
+func NewTestDB(t *testing.T) *storage.DB {
+	t.Helper()
+
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "test.db")
+
+	db, err := storage.Open(dbPath)
+	if err != nil {
+		t.Fatalf("failed to create test database: %v", err)
+	}
+
+	return db
 }

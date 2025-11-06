@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -34,6 +36,10 @@ func main() {
 	exportSearch := exportCmd.String("search", "", "Filter by search term")
 	exportLimit := exportCmd.Int("limit", 0, "Limit number of results (0 = unlimited)")
 
+	importCmd := flag.NewFlagSet("import", flag.ExitOnError)
+	importFormat := importCmd.String("format", "auto", "Import format (auto, text, json, csv)")
+	importInput := importCmd.String("input", "-", "Input file (- for stdin)")
+
 	// Check if we have arguments
 	if len(os.Args) < 2 {
 		// No arguments - launch FZF search
@@ -62,6 +68,13 @@ func main() {
 			os.Exit(1)
 		}
 		handleExport(*exportFormat, *exportOutput, *exportSearch, *exportLimit)
+
+	case "--import", "import":
+		if err := importCmd.Parse(os.Args[2:]); err != nil {
+			fmt.Fprintf(os.Stderr, "Error parsing import flags: %v\n", err)
+			os.Exit(1)
+		}
+		handleImport(*importFormat, *importInput)
 
 	case "--version", "-v":
 		fmt.Printf("fh version %s\n", version)
@@ -376,6 +389,96 @@ func handleExport(formatStr, outputPath, searchTerm string, limit int) {
 	}
 }
 
+func handleImport(formatStr, inputPath string) {
+	// Load configuration
+	cfg, err := config.LoadDefault()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Open database
+	db, err := storage.Open(cfg.GetDatabasePath())
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error opening database: %v\n", err)
+		os.Exit(1)
+	}
+	defer func() {
+		if err := db.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error closing database: %v\n", err)
+		}
+	}()
+
+	// Determine input reader
+	var reader *os.File
+	if inputPath == "-" || inputPath == "" {
+		reader = os.Stdin
+	} else {
+		reader, err = os.Open(inputPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error opening input file: %v\n", err)
+			os.Exit(1)
+		}
+		defer func() {
+			if err := reader.Close(); err != nil {
+				fmt.Fprintf(os.Stderr, "Error closing input file: %v\n", err)
+			}
+		}()
+	}
+
+	// Determine format
+	var format export.Format
+	if formatStr == "auto" {
+		// Auto-detect format
+		detectedFormat, newReader, err := export.DetectFormat(reader)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error detecting format: %v\n", err)
+			os.Exit(1)
+		}
+		format = detectedFormat
+		reader = os.NewFile(0, "pipe") // Create a fake file for the MultiReader
+		// We need to read from newReader instead
+		// This is a bit hacky, let's use a different approach
+
+		// Read all data into buffer
+		var buf bytes.Buffer
+		if _, err := io.Copy(&buf, newReader); err != nil {
+			fmt.Fprintf(os.Stderr, "Error reading input: %v\n", err)
+			os.Exit(1)
+		}
+
+		fmt.Fprintf(os.Stderr, "Auto-detected format: %s\n", format)
+
+		// Import from buffer
+		dedupConfig := cfg.GetDedupConfig()
+		count, err := export.Import(db, &buf, format, dedupConfig)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error importing: %v\n", err)
+			os.Exit(1)
+		}
+
+		fmt.Fprintf(os.Stderr, "Imported %d commands\n", count)
+		return
+	}
+
+	// Parse explicit format
+	format, err = export.ParseFormat(formatStr)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Import
+	dedupConfig := cfg.GetDedupConfig()
+	count, err := export.Import(db, reader, format, dedupConfig)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error importing: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Fprintf(os.Stderr, "Imported %d commands\n", count)
+}
+
 func printUsage() {
 	fmt.Printf(`fh - Fast History
 Version: %s
@@ -399,6 +502,10 @@ OPTIONS:
         --search <term>     Filter by search term
         --limit <n>         Limit results (default: 0 = unlimited)
 
+    --import            Import history from file
+        --format <fmt>      Format: auto, text, json, csv (default: auto)
+        --input <file>      Input file (default: stdin)
+
     --version, -v       Show version
     --help, -h          Show this help
 
@@ -420,6 +527,12 @@ EXAMPLES:
 
     # Export recent 100 commands as CSV
     fh --export --format csv --limit 100 > recent.csv
+
+    # Import history from JSON file
+    fh --import --input history.json
+
+    # Import from stdin (auto-detect format)
+    cat history.csv | fh --import
 
     # Show version
     fh --version
