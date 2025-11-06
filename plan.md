@@ -497,19 +497,27 @@ Build a modern shell history replacement in incremental phases, starting with co
   - [x] TestCollectFiltered
   - [x] All 8 tests passing
 
-#### 4.2 Export Functionality
-- [ ] Implement export formats (pkg/export/):
-  - [ ] Plain text (one command per line)
-  - [ ] JSON (structured with metadata)
-  - [ ] CSV (importable to spreadsheets)
-- [ ] Implement --export command (cmd/export.go):
-  - [ ] --format flag (text, json, csv)
-  - [ ] --output flag (file path, default stdout)
-  - [ ] Apply filters (--since, --until, --search)
-- [ ] Write tests:
-  - [ ] Test each export format
-  - [ ] Test filtering during export
-  - [ ] Test large exports
+#### 4.2 Export Functionality ✅
+- [x] Implemented export formats (pkg/export/export.go):
+  - [x] Plain text (one command per line)
+  - [x] JSON (structured with full metadata)
+  - [x] CSV (importable to spreadsheets with header)
+- [x] Implemented --export command (main.go handleExport):
+  - [x] --format flag (text, json, csv)
+  - [x] --output flag (file path or stdout)
+  - [x] --search filter support
+  - [x] --limit support
+  - [x] ParseFormat() for format validation
+- [x] Written comprehensive tests (pkg/export/export_test.go):
+  - [x] TestExportText
+  - [x] TestExportJSON
+  - [x] TestExportCSV
+  - [x] TestExportWithFilters
+  - [x] TestExportWithLimit
+  - [x] TestExportEmpty
+  - [x] TestParseFormat
+  - [x] TestFormatTimestamp
+  - [x] All 8 tests passing
 
 #### 4.3 Import from Export
 - [ ] Implement --import command (cmd/import.go):

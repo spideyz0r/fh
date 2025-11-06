@@ -10,6 +10,7 @@ import (
 
 	"github.com/spideyz0r/fh/pkg/capture"
 	"github.com/spideyz0r/fh/pkg/config"
+	"github.com/spideyz0r/fh/pkg/export"
 	"github.com/spideyz0r/fh/pkg/importer"
 	"github.com/spideyz0r/fh/pkg/search"
 	"github.com/spideyz0r/fh/pkg/stats"
@@ -26,6 +27,12 @@ func main() {
 	saveCommand := saveCmd.String("cmd", "", "Command to save")
 	saveExitCode := saveCmd.Int("exit-code", 0, "Exit code of the command")
 	saveDuration := saveCmd.Int64("duration", 0, "Duration in milliseconds")
+
+	exportCmd := flag.NewFlagSet("export", flag.ExitOnError)
+	exportFormat := exportCmd.String("format", "text", "Export format (text, json, csv)")
+	exportOutput := exportCmd.String("output", "-", "Output file (- for stdout)")
+	exportSearch := exportCmd.String("search", "", "Filter by search term")
+	exportLimit := exportCmd.Int("limit", 0, "Limit number of results (0 = unlimited)")
 
 	// Check if we have arguments
 	if len(os.Args) < 2 {
@@ -48,6 +55,13 @@ func main() {
 
 	case "--stats":
 		handleStats()
+
+	case "--export", "export":
+		if err := exportCmd.Parse(os.Args[2:]); err != nil {
+			fmt.Fprintf(os.Stderr, "Error parsing export flags: %v\n", err)
+			os.Exit(1)
+		}
+		handleExport(*exportFormat, *exportOutput, *exportSearch, *exportLimit)
 
 	case "--version", "-v":
 		fmt.Printf("fh version %s\n", version)
@@ -158,7 +172,8 @@ func handleSearch(query string) {
 
 func handleInit() {
 	fmt.Println("fh - Fast History Setup")
-	fmt.Println("=======================\n")
+	fmt.Println("=======================")
+	fmt.Println()
 
 	// Load or create config
 	cfg, err := config.LoadDefault()
@@ -282,6 +297,65 @@ func handleStats() {
 	fmt.Print(output)
 }
 
+func handleExport(formatStr, outputPath, searchTerm string, limit int) {
+	// Parse format
+	format, err := export.ParseFormat(formatStr)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Load configuration
+	cfg, err := config.LoadDefault()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Open database
+	db, err := storage.Open(cfg.GetDatabasePath())
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error opening database: %v\n", err)
+		os.Exit(1)
+	}
+	defer db.Close()
+
+	// Build query filters
+	filters := storage.QueryFilters{
+		Search: searchTerm,
+		Limit:  limit,
+	}
+
+	// Determine output writer
+	var writer *os.File
+	if outputPath == "-" || outputPath == "" {
+		writer = os.Stdout
+	} else {
+		writer, err = os.Create(outputPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error creating output file: %v\n", err)
+			os.Exit(1)
+		}
+		defer writer.Close()
+	}
+
+	// Export
+	opts := export.Options{
+		Format:  format,
+		Filters: filters,
+	}
+
+	if err := export.Export(db, writer, opts); err != nil {
+		fmt.Fprintf(os.Stderr, "Error exporting: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Print success message to stderr if writing to file
+	if outputPath != "-" && outputPath != "" {
+		fmt.Fprintf(os.Stderr, "Exported to %s\n", outputPath)
+	}
+}
+
 func printUsage() {
 	fmt.Printf(`fh - Fast History
 Version: %s
@@ -299,6 +373,12 @@ OPTIONS:
 
     --stats             Show statistics about your command history
 
+    --export            Export history to different formats
+        --format <fmt>      Format: text, json, csv (default: text)
+        --output <file>     Output file (default: stdout)
+        --search <term>     Filter by search term
+        --limit <n>         Limit results (default: 0 = unlimited)
+
     --version, -v       Show version
     --help, -h          Show this help
 
@@ -314,6 +394,12 @@ EXAMPLES:
 
     # Show statistics
     fh --stats
+
+    # Export history as JSON
+    fh --export --format json --output history.json
+
+    # Export recent 100 commands as CSV
+    fh --export --format csv --limit 100 > recent.csv
 
     # Show version
     fh --version
