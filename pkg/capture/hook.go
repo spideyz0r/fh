@@ -152,7 +152,11 @@ func InstallHook(shell ShellType, rcFile string) (*HookInstallResult, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open RC file: %w", err)
 	}
-	defer f.Close()
+	defer func() {
+		if err := f.Close(); err != nil {
+			// Error closing file after writing hook
+		}
+	}()
 
 	// Add newline before hook
 	hookWithNewline := "\n" + hookContent + "\n"

@@ -9,7 +9,7 @@ import (
 	"github.com/spideyz0r/fh/pkg/storage"
 )
 
-// FzfSearch launches an interactive FZF selector with history entries
+// FzfSearch launches an interactive FZF selector with history entries.
 func FzfSearch(entries []*storage.HistoryEntry, preFilter string) (*storage.HistoryEntry, error) {
 	if len(entries) == 0 {
 		return nil, fmt.Errorf("no history entries found")
@@ -61,7 +61,7 @@ func FzfSearch(entries []*storage.HistoryEntry, preFilter string) (*storage.Hist
 	return filteredEntries[indexes[0]], nil
 }
 
-// filterEntries filters entries by command text
+// filterEntries filters entries by command text.
 func filterEntries(entries []*storage.HistoryEntry, query string) []*storage.HistoryEntry {
 	query = strings.ToLower(query)
 	var filtered []*storage.HistoryEntry
@@ -73,8 +73,8 @@ func filterEntries(entries []*storage.HistoryEntry, query string) []*storage.His
 	return filtered
 }
 
-// FormatEntry formats a history entry for FZF display
-// Format: timestamp | cwd | command
+// FormatEntry formats a history entry for FZF display.
+// Format: timestamp | cwd | command.
 func FormatEntry(entry *storage.HistoryEntry) string {
 	// Format timestamp
 	ts := time.Unix(entry.Timestamp, 0).Format("2006-01-02 15:04:05")
@@ -115,8 +115,8 @@ func FormatEntry(entry *storage.HistoryEntry) string {
 	return strings.Join(parts, " │ ")
 }
 
-// ExtractCommand extracts the command from a formatted entry line
-// This is useful if you need to parse FZF output back to command
+// ExtractCommand extracts the command from a formatted entry line.
+// This is useful if you need to parse FZF output back to command.
 func ExtractCommand(formattedEntry string) string {
 	// Split by separator
 	parts := strings.Split(formattedEntry, " │ ")

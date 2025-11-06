@@ -156,7 +156,7 @@ func handleSearch(query string) {
 
 	// Search history with configured limit
 	limit := cfg.Search.Limit
-	entries, err := search.SearchAll(db, limit)
+	entries, err := search.All(db, limit)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error searching history: %v\n", err)
 		os.Exit(1)
