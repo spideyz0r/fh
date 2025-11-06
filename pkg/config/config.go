@@ -11,7 +11,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Cache for config to avoid repeated file reads
+// Cache for config to avoid repeated file reads.
 var (
 	cacheMutex    sync.RWMutex
 	cachedConfig  *Config
@@ -19,7 +19,7 @@ var (
 	cachedModTime time.Time
 )
 
-// Config holds the application configuration
+// Config holds the application configuration.
 type Config struct {
 	Database    DatabaseConfig    `yaml:"database"`
 	Deduplicate DeduplicateConfig `yaml:"deduplicate"`
@@ -27,30 +27,34 @@ type Config struct {
 	Search      SearchConfig      `yaml:"search"`
 }
 
-// DatabaseConfig holds database-related configuration
+// DatabaseConfig holds database-related configuration.
 type DatabaseConfig struct {
 	Path string `yaml:"path"` // Path to SQLite database file
 }
 
-// DeduplicateConfig holds deduplication settings
+// DeduplicateConfig holds deduplication settings.
 type DeduplicateConfig struct {
 	Enabled  bool   `yaml:"enabled"`  // Enable deduplication
 	Strategy string `yaml:"strategy"` // keep_first, keep_last, keep_all
 }
 
-// IgnoreConfig holds patterns for commands to ignore
+// IgnoreConfig holds patterns for commands to ignore.
 type IgnoreConfig struct {
 	Patterns []string `yaml:"patterns"` // Patterns to ignore (e.g., "^ls$", "^cd ")
 }
 
-// SearchConfig holds search-related configuration
+// SearchConfig holds search-related configuration.
 type SearchConfig struct {
 	Limit int `yaml:"limit"` // Max number of entries to load for FZF (0 = unlimited)
 }
 
-// Default returns the default configuration
+// Default returns the default configuration.
 func Default() *Config {
-	home, _ := os.UserHomeDir()
+	home, err := os.UserHomeDir()
+	if err != nil {
+		// Fallback to current directory if home is unavailable
+		home = "."
+	}
 	dbPath := filepath.Join(home, ".fh", "history.db")
 
 	return &Config{

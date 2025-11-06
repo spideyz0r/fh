@@ -21,9 +21,10 @@ linters:
     - whitespace
     - gocyclo
     - gocritic
-    - godot
     - exportloopref
     - nilerr
+  disable:
+    - godot  # Disabled: overly pedantic about comment periods
 
 linters-settings:
   errcheck:
