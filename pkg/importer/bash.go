@@ -36,7 +36,11 @@ func ParseBashHistoryFile(path string) ([]*BashHistoryEntry, error) {
 		}
 		return nil, fmt.Errorf("failed to open history file: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			// Log error but don't fail the import
+		}
+	}()
 
 	var entries []*BashHistoryEntry
 	scanner := bufio.NewScanner(file)

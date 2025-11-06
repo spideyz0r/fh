@@ -102,7 +102,11 @@ func handleSave(command string, exitCode int, durationMs int64) {
 		fmt.Fprintf(os.Stderr, "Error opening database: %v\n", err)
 		os.Exit(1)
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error closing database: %v\n", err)
+		}
+	}()
 
 	// Create history entry
 	entry := &storage.HistoryEntry{
@@ -144,7 +148,11 @@ func handleSearch(query string) {
 		fmt.Fprintf(os.Stderr, "Error opening database: %v\n", err)
 		os.Exit(1)
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error closing database: %v\n", err)
+		}
+	}()
 
 	// Search history with configured limit
 	limit := cfg.Search.Limit
@@ -252,7 +260,11 @@ func handleInit() {
 		fmt.Fprintf(os.Stderr, "Error opening database: %v\n", err)
 		os.Exit(1)
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error closing database: %v\n", err)
+		}
+	}()
 
 	dedupConfig := cfg.GetDedupConfig()
 	importResult, err := importer.ImportHistory(db, shell, dedupConfig)
@@ -283,7 +295,11 @@ func handleStats() {
 		fmt.Fprintf(os.Stderr, "Error opening database: %v\n", err)
 		os.Exit(1)
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error closing database: %v\n", err)
+		}
+	}()
 
 	// Collect statistics
 	statistics, err := stats.Collect(db)
@@ -318,7 +334,11 @@ func handleExport(formatStr, outputPath, searchTerm string, limit int) {
 		fmt.Fprintf(os.Stderr, "Error opening database: %v\n", err)
 		os.Exit(1)
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error closing database: %v\n", err)
+		}
+	}()
 
 	// Build query filters
 	filters := storage.QueryFilters{

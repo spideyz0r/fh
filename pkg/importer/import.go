@@ -161,7 +161,10 @@ func ImportFromFile(db *storage.DB, shell capture.ShellType, filePath string, de
 	// Process entries based on shell type
 	switch shell {
 	case capture.ShellBash:
-		bashEntries := entries.([]*BashHistoryEntry)
+		bashEntries, ok := entries.([]*BashHistoryEntry)
+		if !ok {
+			return nil, fmt.Errorf("failed to cast entries to BashHistoryEntry")
+		}
 		result.TotalEntries = len(bashEntries)
 		for _, entry := range bashEntries {
 			historyEntry := &storage.HistoryEntry{
@@ -186,7 +189,10 @@ func ImportFromFile(db *storage.DB, shell capture.ShellType, filePath string, de
 		}
 
 	case capture.ShellZsh:
-		zshEntries := entries.([]*ZshHistoryEntry)
+		zshEntries, ok := entries.([]*ZshHistoryEntry)
+		if !ok {
+			return nil, fmt.Errorf("failed to cast entries to ZshHistoryEntry")
+		}
 		result.TotalEntries = len(zshEntries)
 		for _, entry := range zshEntries {
 			historyEntry := &storage.HistoryEntry{

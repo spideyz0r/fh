@@ -46,7 +46,11 @@ func ParseZshHistoryFile(path string) ([]*ZshHistoryEntry, error) {
 		}
 		return nil, fmt.Errorf("failed to open history file: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			// Log error but don't fail the import
+		}
+	}()
 
 	var entries []*ZshHistoryEntry
 	scanner := bufio.NewScanner(file)
