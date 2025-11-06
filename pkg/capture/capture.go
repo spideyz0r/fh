@@ -7,7 +7,16 @@ import (
 	"os/user"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
+)
+
+// Cache for metadata that doesn't change
+var (
+	metadataMutex   sync.Once
+	cachedHostname  string
+	cachedUser      string
+	cachedShell     string
 )
 
 // Metadata contains information about the command execution environment
@@ -24,16 +33,50 @@ type Metadata struct {
 	SessionID  string
 }
 
+// initMetadataCache initializes the cached metadata that doesn't change
+func initMetadataCache() {
+	// Get hostname (doesn't change)
+	hostname, err := os.Hostname()
+	if err != nil {
+		cachedHostname = "unknown"
+	} else {
+		cachedHostname = hostname
+	}
+
+	// Get username (doesn't change)
+	currentUser, err := user.Current()
+	if err != nil {
+		cachedUser = "unknown"
+	} else {
+		cachedUser = currentUser.Username
+	}
+
+	// Get shell from environment (doesn't change within a session)
+	shell := os.Getenv("SHELL")
+	if shell == "" {
+		cachedShell = "unknown"
+	} else {
+		// Extract just the shell name (bash, zsh, etc.)
+		cachedShell = filepath.Base(shell)
+	}
+}
+
 // Collect gathers metadata about the command execution
 func Collect(command string, exitCode int, durationMs int64) (*Metadata, error) {
+	// Initialize cache once
+	metadataMutex.Do(initMetadataCache)
+
 	meta := &Metadata{
 		Command:    command,
 		ExitCode:   exitCode,
 		Timestamp:  time.Now().Unix(),
 		DurationMs: durationMs,
+		Hostname:   cachedHostname,
+		User:       cachedUser,
+		Shell:      cachedShell,
 	}
 
-	// Get current working directory
+	// Get current working directory (this can change)
 	cwd, err := os.Getwd()
 	if err != nil {
 		// Non-fatal, use empty string
@@ -42,32 +85,7 @@ func Collect(command string, exitCode int, durationMs int64) (*Metadata, error) 
 		meta.Cwd = cwd
 	}
 
-	// Get hostname
-	hostname, err := os.Hostname()
-	if err != nil {
-		meta.Hostname = "unknown"
-	} else {
-		meta.Hostname = hostname
-	}
-
-	// Get username
-	currentUser, err := user.Current()
-	if err != nil {
-		meta.User = "unknown"
-	} else {
-		meta.User = currentUser.Username
-	}
-
-	// Get shell from environment
-	shell := os.Getenv("SHELL")
-	if shell == "" {
-		meta.Shell = "unknown"
-	} else {
-		// Extract just the shell name (bash, zsh, etc.)
-		meta.Shell = filepath.Base(shell)
-	}
-
-	// Try to detect git branch
+	// Try to detect git branch (can change)
 	meta.GitBranch = detectGitBranch(meta.Cwd)
 
 	// Generate session ID from shell PID and start time

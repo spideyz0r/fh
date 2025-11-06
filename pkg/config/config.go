@@ -4,9 +4,19 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
+	"time"
 
 	"github.com/spideyz0r/fh/pkg/storage"
 	"gopkg.in/yaml.v3"
+)
+
+// Cache for config to avoid repeated file reads
+var (
+	cacheMutex   sync.RWMutex
+	cachedConfig *Config
+	cachedPath   string
+	cachedModTime time.Time
 )
 
 // Config holds the application configuration
@@ -70,13 +80,39 @@ func Default() *Config {
 }
 
 // Load loads configuration from file, falling back to defaults
+// Uses a cache to avoid repeated file reads if the file hasn't changed
 func Load(path string) (*Config, error) {
+	// Check cache first
+	cacheMutex.RLock()
+	if cachedConfig != nil && cachedPath == path {
+		// Check if file has been modified
+		if stat, err := os.Stat(path); err == nil {
+			if stat.ModTime().Equal(cachedModTime) {
+				// Cache is still valid
+				defer cacheMutex.RUnlock()
+				return cachedConfig, nil
+			}
+		}
+	}
+	cacheMutex.RUnlock()
+
+	// Cache miss or file changed - load from disk
+	cacheMutex.Lock()
+	defer cacheMutex.Unlock()
+
 	// Start with defaults
 	cfg := Default()
 
-	// If file doesn't exist, return defaults
-	if _, err := os.Stat(path); os.IsNotExist(err) {
+	// If file doesn't exist, cache and return defaults
+	stat, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		cachedConfig = cfg
+		cachedPath = path
+		cachedModTime = time.Time{} // Zero time for non-existent file
 		return cfg, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to stat config file: %w", err)
 	}
 
 	// Read file
@@ -95,6 +131,11 @@ func Load(path string) (*Config, error) {
 		return nil, fmt.Errorf("invalid configuration: %w", err)
 	}
 
+	// Update cache
+	cachedConfig = cfg
+	cachedPath = path
+	cachedModTime = stat.ModTime()
+
 	return cfg, nil
 }
 
@@ -107,6 +148,15 @@ func LoadDefault() (*Config, error) {
 
 	configPath := filepath.Join(home, ".fh", "config.yaml")
 	return Load(configPath)
+}
+
+// ClearCache clears the configuration cache, forcing a reload on next Load()
+func ClearCache() {
+	cacheMutex.Lock()
+	defer cacheMutex.Unlock()
+	cachedConfig = nil
+	cachedPath = ""
+	cachedModTime = time.Time{}
 }
 
 // Save saves configuration to file
