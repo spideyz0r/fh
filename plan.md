@@ -604,97 +604,98 @@ fh --import --input backup.json.enc --decrypt
 
 ---
 
-## Phase 6: AI-Powered Search
+## Phase 6: AI-Powered Search ✅ **COMPLETE**
 
-**Goal**: Semantic search using LLM APIs
+**Goal**: Natural language search using OpenAI API
+
+**Status**: ✅ Complete (Gemini/Anthropic support deferred to TODO)
+
+**What was built**:
+- ✅ OpenAI client integration with official SDK
+- ✅ Two-phase AI workflow: SQL generation → Execution → Result formatting
+- ✅ Smart retry logic with error feedback (max 10 retries, configurable)
+- ✅ Token estimation and chunking for large result sets
+- ✅ SQL validation (whitelist SELECT, blacklist dangerous keywords)
+- ✅ Configuration with model selection, timeouts, retry limits
+- ✅ `--ask` command for natural language queries
+- ✅ Context-aware prompts with database schema, stats, and current date
+
+**What was deferred**:
+- ❌ Provider interface (moved to TODO - currently OpenAI only)
+- ❌ Gemini/Anthropic support (can add later)
+- ❌ Query caching (not needed initially)
+- ❌ Cost tracking (deferred)
 
 ### Tasks
 
-#### 6.1 LLM Client Abstraction
-- [ ] Define LLM provider interface (pkg/ai/provider.go):
-  ```go
-  type Provider interface {
-      Query(prompt string, history []string) (string, error)
-      Name() string
-      MaxTokens() int
-  }
-  ```
-- [ ] Implement OpenAI provider (pkg/ai/openai.go):
-  - [ ] API client using official SDK
-  - [ ] Prompt construction
-  - [ ] Error handling (rate limits, etc.)
-- [ ] Implement Anthropic provider (pkg/ai/anthropic.go):
-  - [ ] Claude API client
-  - [ ] Prompt construction
-  - [ ] Error handling
-- [ ] Add configuration:
+#### 6.1 OpenAI Client Implementation ✅ COMPLETE
+- [x] Implemented OpenAI provider (pkg/ai/openai.go):
+  - [x] API client using official openai-go SDK
+  - [x] Model mapping (gpt-4o, gpt-4o-mini, gpt-4, gpt-3.5-turbo)
+  - [x] Query() method with context support
+  - [x] OPENAI_API_KEY environment variable
+- [x] Add configuration (pkg/config/config.go):
   ```yaml
   ai:
     enabled: true
-    provider: anthropic
-    api_key_env: ANTHROPIC_API_KEY
-    model: claude-3-5-sonnet-20241022
-    max_history_items: 1000
-    max_tokens: 4000
+    provider: openai
+    model: gpt-4o-mini
+    sql_timeout_secs: 60
+    max_sql_retries: 10
+    max_chunk_tokens: 10000
   ```
-- [ ] Write tests:
-  - [ ] Mock API responses
-  - [ ] Test each provider
-  - [ ] Test error handling
+- [ ] Provider interface - **Deferred to TODO**
+- [ ] Implement Gemini provider - **Deferred to TODO**
+- [ ] Write tests - **TODO**
 
-#### 6.2 Prompt Engineering
-- [ ] Design system prompt (pkg/ai/prompts.go):
-  ```
-  You are a shell history assistant. Given a list of commands
-  with timestamps and context, help the user find relevant commands.
+#### 6.2 Prompt Engineering ✅ COMPLETE
+- [x] Implemented comprehensive prompts (pkg/ai/prompts.go):
+  - [x] GenerateSQLPrompt() - SQL generation with schema, stats, current date
+  - [x] GenerateSQLRetryPrompt() - Retry with error feedback
+  - [x] GenerateFormatPrompt() - CLI-friendly result formatting
+  - [x] GenerateChunkSummaryPrompt() - Summarize large result chunks
+  - [x] GenerateFinalSynthesisPrompt() - Synthesize chunk summaries
+- [x] Context window management:
+  - [x] Database schema included in prompt
+  - [x] Database stats (total commands, date range, top commands)
+  - [x] Current date/time for relative queries ("yesterday", "last week")
+  - [x] Token estimation for chunking (rough: ~4 chars per token)
+  - [x] Chunk results if > max_chunk_tokens (10k default)
 
-  History format:
-  [timestamp] [directory] command
+#### 6.3 Ask Command ✅ COMPLETE
+- [x] Implemented --ask command (main.go handleAsk):
+  - [x] Parse natural language query from args
+  - [x] Check if AI enabled in config
+  - [x] Two-phase workflow:
+    1. Generate SQL query from user question
+    2. Execute SQL with timeout
+    3. Format results for CLI output
+  - [x] Retry SQL generation up to max_sql_retries (10)
+  - [x] SQL validation (must start with SELECT, no dangerous keywords)
+  - [x] Clean SQL response (remove markdown code blocks)
+  - [x] Handle errors: API errors, SQL errors, empty results, timeouts
+- [x] Implemented core logic (pkg/ai/ask.go):
+  - [x] Ask() orchestrates the workflow
+  - [x] generateSQLWithRetry() - retry loop with error feedback
+  - [x] executeSQLQuery() - execute with context timeout
+  - [x] formatResults() - format with chunking if needed
+  - [x] validateSQL() - security validation
+  - [x] estimateTokens() and chunkResults() - chunking logic
+- [x] Updated help text with examples
+- [ ] Cost tracking - **Deferred**
+- [ ] Write tests - **TODO**
 
-  User question: {query}
+#### 6.4 Caching & Optimization ❌ DEFERRED
+- [ ] Query caching - **Moved to TODO**
+- [ ] Rate limiting - **Moved to TODO**
 
-  Return only the relevant commands, one per line.
-  ```
-- [ ] Implement context window management:
-  - [ ] Limit history sent to API
-  - [ ] Prioritize recent history
-  - [ ] Summarize old history if needed
-- [ ] Test prompts with various queries
+**Deliverable**: ✅ AI-powered natural language search with OpenAI
 
-#### 6.3 Ask Command
-- [ ] Implement --ask command (cmd/ask.go):
-  - [ ] Parse natural language query
-  - [ ] Fetch relevant history window
-  - [ ] Format history for LLM
-  - [ ] Send to configured provider
-  - [ ] Parse and display results
-  - [ ] Optional: Pipe results to FZF
-- [ ] Add cost tracking:
-  - [ ] Estimate tokens before sending
-  - [ ] Log API calls and costs
-  - [ ] Warn if approaching limits
-- [ ] Write tests:
-  - [ ] Test query parsing
-  - [ ] Test history formatting
-  - [ ] Test result parsing
+**Testing Milestone**: No tests yet (TODO)
 
-#### 6.4 Caching & Optimization
-- [ ] Implement query cache (pkg/ai/cache.go):
-  - [ ] Cache common queries
-  - [ ] TTL-based expiration
-  - [ ] Local SQLite cache table
-- [ ] Add rate limiting:
-  - [ ] Max queries per day
-  - [ ] Configurable limits
-- [ ] Write tests for caching
-
-**Deliverable**: AI-powered semantic search
-
-**Testing Milestone**: Coverage >75% (API mocking is complex)
-
-**Update README.md**:
+**Update README.md**: (Deferred to Phase 7)
 - [ ] Document AI features
-- [ ] Add setup instructions (API keys)
+- [ ] Add setup instructions (OPENAI_API_KEY)
 - [ ] Show example queries
 - [ ] Document cost considerations
 
@@ -1044,6 +1045,29 @@ fh --save --cmd "..." --exit-code 0 --cwd /path
 ## TODO / Future Improvements
 
 This section tracks improvements and features that are deferred for future releases.
+
+### AI Provider Interface (Deferred from Phase 6)
+- [ ] **LLM Provider Abstraction**
+  - **Rationale**: OpenAI works well for MVP, interface can be added when second provider is needed
+  - **Current approach**: Direct OpenAI implementation in pkg/ai/openai.go
+  - **Deferred features**:
+    - Define Provider interface (Query, Name, MaxTokens methods)
+    - Refactor OpenAI client to implement interface
+    - Add Gemini provider (Google AI)
+    - Add Anthropic provider (Claude)
+    - Provider selection via config (ai.provider field already exists)
+  - **Implementation notes**:
+    - Config already has `provider` field set to "openai"
+    - Model mapping can be moved to provider-specific code
+    - Each provider will need its own prompt formatting
+  - **Priority**: Medium (needed for multi-LLM support)
+  - **Tracked in**: Phase 8+ or when users request Gemini/Claude
+
+### AI Improvements (Deferred from Phase 6)
+- [ ] **Query caching** - Cache common AI queries to reduce API costs
+- [ ] **Cost tracking** - Track token usage and estimate costs
+- [ ] **Rate limiting** - Prevent excessive API usage
+- [ ] **Unit tests for AI package** - Mock OpenAI responses and test logic
 
 ### Remote Sync (Deferred from Phase 5)
 - [ ] **SFTP Sync Implementation**

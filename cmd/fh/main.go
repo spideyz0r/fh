@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/spideyz0r/fh/pkg/ai"
 	"github.com/spideyz0r/fh/pkg/capture"
 	"github.com/spideyz0r/fh/pkg/config"
 	"github.com/spideyz0r/fh/pkg/crypto"
@@ -65,6 +66,14 @@ func main() {
 
 	case "--stats":
 		handleStats()
+
+	case "--ask":
+		if len(os.Args) < 3 {
+			fmt.Fprintf(os.Stderr, "Error: query required for --ask\n")
+			os.Exit(1)
+		}
+		query := strings.Join(os.Args[2:], " ")
+		handleAsk(query)
 
 	case "--export", "export":
 		if err := exportCmd.Parse(os.Args[2:]); err != nil {
@@ -330,6 +339,44 @@ func handleStats() {
 	fmt.Print(output)
 }
 
+func handleAsk(query string) {
+	// Load configuration
+	cfg, err := config.LoadDefault()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Check if AI is enabled
+	if !cfg.AI.Enabled {
+		fmt.Fprintf(os.Stderr, "Error: AI search is disabled in configuration\n")
+		fmt.Fprintf(os.Stderr, "Enable it in ~/.fh/config.yaml or set OPENAI_API_KEY environment variable\n")
+		os.Exit(1)
+	}
+
+	// Open database
+	db, err := storage.Open(cfg.GetDatabasePath())
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error opening database: %v\n", err)
+		os.Exit(1)
+	}
+	defer func() {
+		if err := db.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error closing database: %v\n", err)
+		}
+	}()
+
+	// Perform AI-powered search
+	result, err := ai.Ask(db, query, cfg)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Print result
+	fmt.Println(result)
+}
+
 func handleExport(formatStr, outputPath, searchTerm string, limit int, encrypt bool) {
 	// Parse format
 	format, err := export.ParseFormat(formatStr)
@@ -591,6 +638,9 @@ OPTIONS:
 
     --stats             Show statistics about your command history
 
+    --ask <query>       AI-powered natural language search
+                        Requires OPENAI_API_KEY environment variable
+
     --export            Export history to different formats
         --format <fmt>      Format: text, json, csv (default: text)
         --output <file>     Output file (default: stdout)
@@ -619,6 +669,11 @@ EXAMPLES:
     # Show statistics
     fh --stats
 
+    # AI-powered search (requires OPENAI_API_KEY)
+    fh --ask "what git commands did I run today?"
+    fh --ask "show me failed commands from last week"
+    fh --ask "what docker commands did I use yesterday?"
+
     # Export history as JSON
     fh --export --format json --output history.json
 
@@ -642,6 +697,7 @@ EXAMPLES:
 
 ENVIRONMENT:
     FH_DB_PATH          Override database path (default: ~/.fh/history.db)
+    OPENAI_API_KEY      OpenAI API key (required for --ask command)
 
 For more information, visit: https://github.com/spideyz0r/fh
 `, version)

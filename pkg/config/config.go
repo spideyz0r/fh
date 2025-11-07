@@ -25,6 +25,7 @@ type Config struct {
 	Deduplicate DeduplicateConfig `yaml:"deduplicate"`
 	Ignore      IgnoreConfig      `yaml:"ignore"`
 	Search      SearchConfig      `yaml:"search"`
+	AI          AIConfig          `yaml:"ai"`
 }
 
 // DatabaseConfig holds database-related configuration.
@@ -46,6 +47,16 @@ type IgnoreConfig struct {
 // SearchConfig holds search-related configuration.
 type SearchConfig struct {
 	Limit int `yaml:"limit"` // Max number of entries to load for FZF (0 = unlimited)
+}
+
+// AIConfig holds AI-powered search configuration.
+type AIConfig struct {
+	Enabled          bool   `yaml:"enabled"`            // Enable AI-powered search
+	Provider         string `yaml:"provider"`           // AI provider (openai, gemini - future)
+	Model            string `yaml:"model"`              // Model to use (gpt-4o-mini, gpt-4o, etc.)
+	SQLTimeoutSecs   int    `yaml:"sql_timeout_secs"`   // SQL query timeout in seconds
+	MaxSQLRetries    int    `yaml:"max_sql_retries"`    // Max retries for SQL generation
+	MaxChunkTokens   int    `yaml:"max_chunk_tokens"`   // Max tokens per chunk when formatting
 }
 
 // Default returns the default configuration.
@@ -79,6 +90,14 @@ func Default() *Config {
 		},
 		Search: SearchConfig{
 			Limit: 1000, // Default: load 1000 most recent entries (0 = unlimited)
+		},
+		AI: AIConfig{
+			Enabled:        true,
+			Provider:       "openai",
+			Model:          "gpt-4o-mini",
+			SQLTimeoutSecs: 60,
+			MaxSQLRetries:  10,
+			MaxChunkTokens: 10000,
 		},
 	}
 }

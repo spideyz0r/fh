@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"os"
@@ -147,6 +148,11 @@ func (db *DB) Close() error {
 		return db.conn.Close()
 	}
 	return nil
+}
+
+// QueryContext executes a query with context (for timeout support)
+func (db *DB) QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error) {
+	return db.conn.QueryContext(ctx, query, args...)
 }
 
 // Path returns the database file path
