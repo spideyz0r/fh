@@ -24,6 +24,7 @@ type QueryFilters struct {
 	ExitCode *int   // Filter by exit code
 	Limit    int    // Max results
 	Offset   int    // Pagination offset
+	Distinct bool   // Return only unique commands (most recent occurrence)
 }
 
 // Insert adds a new history entry to the database
@@ -59,33 +60,79 @@ func (db *DB) Insert(entry *HistoryEntry) error {
 
 // Query retrieves history entries matching the given filters
 func (db *DB) Query(filters QueryFilters) ([]*HistoryEntry, error) {
-	query := "SELECT id, timestamp, command, cwd, exit_code, hostname, user, shell, duration_ms, git_branch, hash, session_id, created_at FROM history WHERE 1=1"
+	var query string
 	args := []interface{}{}
 
-	// Build WHERE clause
-	if filters.Search != "" {
-		query += " AND command LIKE ?"
-		args = append(args, "%"+filters.Search+"%")
-	}
+	if filters.Distinct {
+		// DISTINCT mode: Return only unique commands (most recent occurrence)
+		//
+		// Strategy: Use a subquery to find the MAX(id) for each unique command.
+		// Since IDs auto-increment, MAX(id) = most recent occurrence.
+		// This GROUP BY happens in the database, avoiding loading 44k+ rows into memory.
+		//
+		// Example: If "ls" appears 100 times, only the most recent "ls" is returned.
+		// This reduces memory usage from ~44k entries to ~13k unique commands.
+		query = `SELECT id, timestamp, command, cwd, exit_code, hostname, user, shell, duration_ms, git_branch, hash, session_id, created_at
+		         FROM history
+		         WHERE id IN (SELECT MAX(id) FROM history WHERE 1=1`
 
-	if filters.Cwd != "" {
-		query += " AND cwd = ?"
-		args = append(args, filters.Cwd)
-	}
+		// Build WHERE clause for subquery (filters apply before grouping)
+		if filters.Search != "" {
+			query += " AND command LIKE ?"
+			args = append(args, "%"+filters.Search+"%")
+		}
 
-	if filters.After > 0 {
-		query += " AND timestamp >= ?"
-		args = append(args, filters.After)
-	}
+		if filters.Cwd != "" {
+			query += " AND cwd = ?"
+			args = append(args, filters.Cwd)
+		}
 
-	if filters.Before > 0 {
-		query += " AND timestamp <= ?"
-		args = append(args, filters.Before)
-	}
+		if filters.After > 0 {
+			query += " AND timestamp >= ?"
+			args = append(args, filters.After)
+		}
 
-	if filters.ExitCode != nil {
-		query += " AND exit_code = ?"
-		args = append(args, *filters.ExitCode)
+		if filters.Before > 0 {
+			query += " AND timestamp <= ?"
+			args = append(args, filters.Before)
+		}
+
+		if filters.ExitCode != nil {
+			query += " AND exit_code = ?"
+			args = append(args, *filters.ExitCode)
+		}
+
+		// GROUP BY command to get one entry per unique command
+		query += " GROUP BY command)"
+	} else {
+		// Regular mode: Return all entries (including duplicates)
+		query = "SELECT id, timestamp, command, cwd, exit_code, hostname, user, shell, duration_ms, git_branch, hash, session_id, created_at FROM history WHERE 1=1"
+
+		// Build WHERE clause
+		if filters.Search != "" {
+			query += " AND command LIKE ?"
+			args = append(args, "%"+filters.Search+"%")
+		}
+
+		if filters.Cwd != "" {
+			query += " AND cwd = ?"
+			args = append(args, filters.Cwd)
+		}
+
+		if filters.After > 0 {
+			query += " AND timestamp >= ?"
+			args = append(args, filters.After)
+		}
+
+		if filters.Before > 0 {
+			query += " AND timestamp <= ?"
+			args = append(args, filters.Before)
+		}
+
+		if filters.ExitCode != nil {
+			query += " AND exit_code = ?"
+			args = append(args, *filters.ExitCode)
+		}
 	}
 
 	// Order by timestamp descending (most recent first)

@@ -24,9 +24,6 @@ func FzfSearch(entries []*storage.HistoryEntry, preFilter string) (*storage.Hist
 		}
 	}
 
-	// Deduplicate for display (keep most recent occurrence of each command)
-	filteredEntries = deduplicateForDisplay(filteredEntries)
-
 	// Create FZF instance with custom keybindings
 	// Note: go-fzf doesn't support PageUp/PageDown natively
 	// TODO: Consider switching to native fzf binary for full feature support
@@ -74,22 +71,6 @@ func filterEntries(entries []*storage.HistoryEntry, query string) []*storage.His
 		}
 	}
 	return filtered
-}
-
-// deduplicateForDisplay removes duplicate commands, keeping the most recent occurrence.
-// Assumes entries are already sorted by timestamp DESC (most recent first).
-func deduplicateForDisplay(entries []*storage.HistoryEntry) []*storage.HistoryEntry {
-	seen := make(map[string]bool)
-	var deduplicated []*storage.HistoryEntry
-
-	for _, entry := range entries {
-		if !seen[entry.Command] {
-			seen[entry.Command] = true
-			deduplicated = append(deduplicated, entry)
-		}
-	}
-
-	return deduplicated
 }
 
 // FormatEntry formats a history entry for FZF display.
