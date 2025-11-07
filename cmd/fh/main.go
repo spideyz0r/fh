@@ -10,9 +10,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/spideyz0r/fh/pkg/backup"
 	"github.com/spideyz0r/fh/pkg/capture"
 	"github.com/spideyz0r/fh/pkg/config"
+	"github.com/spideyz0r/fh/pkg/crypto"
 	"github.com/spideyz0r/fh/pkg/export"
 	"github.com/spideyz0r/fh/pkg/importer"
 	"github.com/spideyz0r/fh/pkg/search"
@@ -37,10 +37,12 @@ func main() {
 	exportOutput := exportCmd.String("output", "-", "Output file (- for stdout)")
 	exportSearch := exportCmd.String("search", "", "Filter by search term")
 	exportLimit := exportCmd.Int("limit", 0, "Limit number of results (0 = unlimited)")
+	exportEncrypt := exportCmd.Bool("encrypt", false, "Encrypt the export with a passphrase")
 
 	importCmd := flag.NewFlagSet("import", flag.ExitOnError)
 	importFormat := importCmd.String("format", "auto", "Import format (auto, text, json, csv)")
 	importInput := importCmd.String("input", "-", "Input file (- for stdin)")
+	importDecrypt := importCmd.Bool("decrypt", false, "Decrypt the import with a passphrase")
 
 	// Check if we have arguments
 	if len(os.Args) < 2 {
@@ -69,17 +71,14 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error parsing export flags: %v\n", err)
 			os.Exit(1)
 		}
-		handleExport(*exportFormat, *exportOutput, *exportSearch, *exportLimit)
+		handleExport(*exportFormat, *exportOutput, *exportSearch, *exportLimit, *exportEncrypt)
 
 	case "--import", "import":
 		if err := importCmd.Parse(os.Args[2:]); err != nil {
 			fmt.Fprintf(os.Stderr, "Error parsing import flags: %v\n", err)
 			os.Exit(1)
 		}
-		handleImport(*importFormat, *importInput)
-
-	case "--backup":
-		handleBackup()
+		handleImport(*importFormat, *importInput, *importDecrypt)
 
 	case "--version", "-v":
 		fmt.Printf("fh version %s\n", version)
@@ -331,7 +330,7 @@ func handleStats() {
 	fmt.Print(output)
 }
 
-func handleExport(formatStr, outputPath, searchTerm string, limit int) {
+func handleExport(formatStr, outputPath, searchTerm string, limit int, encrypt bool) {
 	// Parse format
 	format, err := export.ParseFormat(formatStr)
 	if err != nil {
@@ -383,18 +382,73 @@ func handleExport(formatStr, outputPath, searchTerm string, limit int) {
 		Filters: filters,
 	}
 
-	if err := export.Export(db, writer, opts); err != nil {
-		fmt.Fprintf(os.Stderr, "Error exporting: %v\n", err)
-		os.Exit(1)
+	// If encryption is requested, export to buffer first
+	if encrypt {
+		var buf bytes.Buffer
+		if err := export.Export(db, &buf, opts); err != nil {
+			fmt.Fprintf(os.Stderr, "Error exporting: %v\n", err)
+			os.Exit(1)
+		}
+
+		// Prompt for passphrase
+		fmt.Fprint(os.Stderr, "Enter passphrase for encryption: ")
+		passphrase, err := term.ReadPassword(int(os.Stdin.Fd()))
+		fmt.Fprintln(os.Stderr)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error reading passphrase: %v\n", err)
+			os.Exit(1)
+		}
+
+		if len(passphrase) == 0 {
+			fmt.Fprintf(os.Stderr, "Error: passphrase cannot be empty\n")
+			os.Exit(1)
+		}
+
+		// Confirm passphrase
+		fmt.Fprint(os.Stderr, "Confirm passphrase: ")
+		confirm, err := term.ReadPassword(int(os.Stdin.Fd()))
+		fmt.Fprintln(os.Stderr)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error reading passphrase confirmation: %v\n", err)
+			os.Exit(1)
+		}
+
+		if !bytes.Equal(passphrase, confirm) {
+			fmt.Fprintf(os.Stderr, "Error: passphrases do not match\n")
+			os.Exit(1)
+		}
+
+		// Encrypt
+		encrypted, err := crypto.Encrypt(buf.Bytes(), string(passphrase))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error encrypting: %v\n", err)
+			os.Exit(1)
+		}
+
+		// Write encrypted data
+		if _, err := writer.Write(encrypted); err != nil {
+			fmt.Fprintf(os.Stderr, "Error writing encrypted data: %v\n", err)
+			os.Exit(1)
+		}
+	} else {
+		// Normal export without encryption
+		if err := export.Export(db, writer, opts); err != nil {
+			fmt.Fprintf(os.Stderr, "Error exporting: %v\n", err)
+			os.Exit(1)
+		}
 	}
 
 	// Print success message to stderr if writing to file
 	if outputPath != "-" && outputPath != "" {
-		fmt.Fprintf(os.Stderr, "Exported to %s\n", outputPath)
+		if encrypt {
+			fmt.Fprintf(os.Stderr, "Exported and encrypted to %s\n", outputPath)
+		} else {
+			fmt.Fprintf(os.Stderr, "Exported to %s\n", outputPath)
+		}
 	}
 }
 
-func handleImport(formatStr, inputPath string) {
+func handleImport(formatStr, inputPath string, decrypt bool) {
 	// Load configuration
 	cfg, err := config.LoadDefault()
 	if err != nil {
@@ -415,20 +469,56 @@ func handleImport(formatStr, inputPath string) {
 	}()
 
 	// Determine input reader
-	var reader *os.File
+	var reader io.Reader
+	var file *os.File
 	if inputPath == "-" || inputPath == "" {
 		reader = os.Stdin
 	} else {
-		reader, err = os.Open(inputPath)
+		file, err = os.Open(inputPath)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error opening input file: %v\n", err)
 			os.Exit(1)
 		}
 		defer func() {
-			if err := reader.Close(); err != nil {
+			if err := file.Close(); err != nil {
 				fmt.Fprintf(os.Stderr, "Error closing input file: %v\n", err)
 			}
 		}()
+		reader = file
+	}
+
+	// Handle decryption if requested
+	if decrypt {
+		// Read all encrypted data
+		encryptedData, err := io.ReadAll(reader)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error reading encrypted data: %v\n", err)
+			os.Exit(1)
+		}
+
+		// Prompt for passphrase
+		fmt.Fprint(os.Stderr, "Enter passphrase to decrypt: ")
+		passphrase, err := term.ReadPassword(int(os.Stdin.Fd()))
+		fmt.Fprintln(os.Stderr)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error reading passphrase: %v\n", err)
+			os.Exit(1)
+		}
+
+		if len(passphrase) == 0 {
+			fmt.Fprintf(os.Stderr, "Error: passphrase cannot be empty\n")
+			os.Exit(1)
+		}
+
+		// Decrypt
+		decrypted, err := crypto.Decrypt(encryptedData, string(passphrase))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error decrypting: %v\n", err)
+			os.Exit(1)
+		}
+
+		// Use decrypted data as reader
+		reader = bytes.NewReader(decrypted)
 	}
 
 	// Determine format
@@ -484,68 +574,6 @@ func handleImport(formatStr, inputPath string) {
 	fmt.Fprintf(os.Stderr, "Imported %d commands\n", count)
 }
 
-func handleBackup() {
-	// Load configuration
-	cfg, err := config.LoadDefault()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Prompt for passphrase
-	fmt.Fprint(os.Stderr, "Enter passphrase for backup encryption: ")
-	passphrase, err := term.ReadPassword(int(os.Stdin.Fd()))
-	fmt.Fprintln(os.Stderr) // New line after password input
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error reading passphrase: %v\n", err)
-		os.Exit(1)
-	}
-
-	if len(passphrase) == 0 {
-		fmt.Fprintf(os.Stderr, "Error: passphrase cannot be empty\n")
-		os.Exit(1)
-	}
-
-	// Confirm passphrase
-	fmt.Fprint(os.Stderr, "Confirm passphrase: ")
-	confirm, err := term.ReadPassword(int(os.Stdin.Fd()))
-	fmt.Fprintln(os.Stderr) // New line after password input
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error reading passphrase confirmation: %v\n", err)
-		os.Exit(1)
-	}
-
-	if !bytes.Equal(passphrase, confirm) {
-		fmt.Fprintf(os.Stderr, "Error: passphrases do not match\n")
-		os.Exit(1)
-	}
-
-	// Create backup
-	dbPath := cfg.GetDatabasePath()
-	backupDir := cfg.Backup.Directory
-
-	fmt.Fprintf(os.Stderr, "Creating encrypted backup...\n")
-
-	info, err := backup.Create(dbPath, backupDir, string(passphrase))
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating backup: %v\n", err)
-		os.Exit(1)
-	}
-
-	fmt.Fprintf(os.Stderr, "✓ Backup created: %s\n", info.Filename)
-	fmt.Fprintf(os.Stderr, "  Location: %s\n", info.Path)
-	fmt.Fprintf(os.Stderr, "  Size: %s\n", backup.FormatSize(info.Size))
-
-	// Rotate old backups
-	if cfg.Backup.KeepBackups > 0 {
-		if err := backup.Rotate(backupDir, cfg.Backup.KeepBackups); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: Failed to rotate old backups: %v\n", err)
-		} else {
-			fmt.Fprintf(os.Stderr, "  Retained %d most recent backups\n", cfg.Backup.KeepBackups)
-		}
-	}
-}
-
 func printUsage() {
 	fmt.Printf(`fh - Fast History
 Version: %s
@@ -568,13 +596,12 @@ OPTIONS:
         --output <file>     Output file (default: stdout)
         --search <term>     Filter by search term
         --limit <n>         Limit results (default: 0 = unlimited)
+        --encrypt           Encrypt the export with AES-256-GCM
 
     --import            Import history from file
         --format <fmt>      Format: auto, text, json, csv (default: auto)
         --input <file>      Input file (default: stdin)
-
-    --backup            Create encrypted backup of history database
-                        (Prompts for passphrase interactively)
+        --decrypt           Decrypt the import (AES-256-GCM)
 
     --version, -v       Show version
     --help, -h          Show this help
@@ -604,8 +631,11 @@ EXAMPLES:
     # Import from stdin (auto-detect format)
     cat history.csv | fh --import
 
-    # Create encrypted backup
-    fh --backup
+    # Create encrypted backup (export with encryption)
+    fh --export --format json --output backup.json.enc --encrypt
+
+    # Restore from encrypted backup
+    fh --import --input backup.json.enc --decrypt
 
     # Show version
     fh --version

@@ -25,7 +25,6 @@ type Config struct {
 	Deduplicate DeduplicateConfig `yaml:"deduplicate"`
 	Ignore      IgnoreConfig      `yaml:"ignore"`
 	Search      SearchConfig      `yaml:"search"`
-	Backup      BackupConfig      `yaml:"backup"`
 }
 
 // DatabaseConfig holds database-related configuration.
@@ -47,12 +46,6 @@ type IgnoreConfig struct {
 // SearchConfig holds search-related configuration.
 type SearchConfig struct {
 	Limit int `yaml:"limit"` // Max number of entries to load for FZF (0 = unlimited)
-}
-
-// BackupConfig holds backup-related configuration.
-type BackupConfig struct {
-	Directory   string `yaml:"directory"`    // Directory to store encrypted backups
-	KeepBackups int    `yaml:"keep_backups"` // Number of backups to retain (0 = unlimited)
 }
 
 // Default returns the default configuration.
@@ -86,10 +79,6 @@ func Default() *Config {
 		},
 		Search: SearchConfig{
 			Limit: 1000, // Default: load 1000 most recent entries (0 = unlimited)
-		},
-		Backup: BackupConfig{
-			Directory:   filepath.Join(home, ".fh", "backups"),
-			KeepBackups: 10, // Keep last 10 backups
 		},
 	}
 }
