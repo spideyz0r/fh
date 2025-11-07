@@ -3,6 +3,7 @@ package ai
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -12,7 +13,7 @@ import (
 )
 
 // Ask performs an AI-powered search query
-func Ask(db *storage.DB, userQuery string, cfg *config.Config) (string, error) {
+func Ask(db *storage.DB, userQuery string, cfg *config.Config, debug bool) (string, error) {
 	// Check if AI is enabled
 	if !cfg.AI.Enabled {
 		return "", fmt.Errorf("AI search is disabled in configuration")
@@ -30,16 +31,30 @@ func Ask(db *storage.DB, userQuery string, cfg *config.Config) (string, error) {
 		return "", fmt.Errorf("failed to collect database stats: %w", err)
 	}
 
+	if debug {
+		fmt.Fprintf(os.Stderr, "\n[DEBUG] User Query: %s\n", userQuery)
+		fmt.Fprintf(os.Stderr, "[DEBUG] Database Stats: %d total commands, %d unique\n",
+			statistics.TotalCommands, statistics.UniqueCommands)
+	}
+
 	// Phase 1: Generate SQL query with retry
-	sqlQuery, err := generateSQLWithRetry(client, statistics, userQuery, cfg.AI.MaxSQLRetries)
+	sqlQuery, err := generateSQLWithRetry(client, statistics, userQuery, cfg.AI.MaxSQLRetries, debug)
 	if err != nil {
 		return "", err
+	}
+
+	if debug {
+		fmt.Fprintf(os.Stderr, "[DEBUG] Final SQL Query: %s\n", sqlQuery)
 	}
 
 	// Phase 2: Execute SQL query
 	results, err := executeSQLQuery(db, sqlQuery, time.Duration(cfg.AI.SQLTimeoutSecs)*time.Second)
 	if err != nil {
 		return "", fmt.Errorf("failed to execute query: %w", err)
+	}
+
+	if debug {
+		fmt.Fprintf(os.Stderr, "[DEBUG] Query returned %d results\n", len(results))
 	}
 
 	// Check if we got results
@@ -57,7 +72,7 @@ func Ask(db *storage.DB, userQuery string, cfg *config.Config) (string, error) {
 }
 
 // generateSQLWithRetry attempts to generate a valid SQL query with retries
-func generateSQLWithRetry(client *OpenAIClient, statistics *stats.Stats, userQuery string, maxRetries int) (string, error) {
+func generateSQLWithRetry(client *OpenAIClient, statistics *stats.Stats, userQuery string, maxRetries int, debug bool) (string, error) {
 	ctx := context.Background()
 	var lastSQL string
 	var lastError string
@@ -70,12 +85,25 @@ func generateSQLWithRetry(client *OpenAIClient, statistics *stats.Stats, userQue
 		} else {
 			// Retry - use error feedback
 			prompt = GenerateSQLRetryPrompt(lastSQL, lastError)
+			if debug {
+				fmt.Fprintf(os.Stderr, "[DEBUG] Retry attempt %d/%d - Previous error: %s\n",
+					attempt, maxRetries, lastError)
+			}
+		}
+
+		if debug && attempt == 1 {
+			fmt.Fprintf(os.Stderr, "[DEBUG] Sending prompt to OpenAI (truncated):\n%s\n",
+				truncateString(prompt, 500))
 		}
 
 		// Get SQL from OpenAI
 		response, err := client.Query(ctx, prompt)
 		if err != nil {
 			return "", fmt.Errorf("OpenAI API error: %w", err)
+		}
+
+		if debug {
+			fmt.Fprintf(os.Stderr, "[DEBUG] OpenAI response (attempt %d): %s\n", attempt, response)
 		}
 
 		// Clean up response (remove markdown, extra whitespace)
@@ -85,13 +113,28 @@ func generateSQLWithRetry(client *OpenAIClient, statistics *stats.Stats, userQue
 		// Validate SQL (basic check)
 		if err := validateSQL(sqlQuery); err != nil {
 			lastError = err.Error()
+			if debug {
+				fmt.Fprintf(os.Stderr, "[DEBUG] SQL validation failed: %s\n", lastError)
+			}
 			continue
+		}
+
+		if debug {
+			fmt.Fprintf(os.Stderr, "[DEBUG] SQL validation passed\n")
 		}
 
 		return sqlQuery, nil
 	}
 
 	return "", fmt.Errorf("could not generate valid query after %d attempts", maxRetries)
+}
+
+// truncateString truncates a string to maxLen chars with "..." suffix
+func truncateString(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "..."
 }
 
 // executeSQLQuery executes the SQL query with a timeout

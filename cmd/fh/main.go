@@ -72,8 +72,19 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error: query required for --ask\n")
 			os.Exit(1)
 		}
-		query := strings.Join(os.Args[2:], " ")
-		handleAsk(query)
+		// Check for --debug flag
+		debug := false
+		args := os.Args[2:]
+		if len(args) > 0 && args[0] == "--debug" {
+			debug = true
+			args = args[1:]
+		}
+		if len(args) == 0 {
+			fmt.Fprintf(os.Stderr, "Error: query required for --ask\n")
+			os.Exit(1)
+		}
+		query := strings.Join(args, " ")
+		handleAsk(query, debug)
 
 	case "--export", "export":
 		if err := exportCmd.Parse(os.Args[2:]); err != nil {
@@ -339,7 +350,7 @@ func handleStats() {
 	fmt.Print(output)
 }
 
-func handleAsk(query string) {
+func handleAsk(query string, debug bool) {
 	// Load configuration
 	cfg, err := config.LoadDefault()
 	if err != nil {
@@ -367,7 +378,7 @@ func handleAsk(query string) {
 	}()
 
 	// Perform AI-powered search
-	result, err := ai.Ask(db, query, cfg)
+	result, err := ai.Ask(db, query, cfg, debug)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
@@ -640,6 +651,7 @@ OPTIONS:
 
     --ask <query>       AI-powered natural language search
                         Requires OPENAI_API_KEY environment variable
+        --debug         Show debug output (SQL query, responses, etc.)
 
     --export            Export history to different formats
         --format <fmt>      Format: text, json, csv (default: text)
@@ -673,6 +685,7 @@ EXAMPLES:
     fh --ask "what git commands did I run today?"
     fh --ask "show me failed commands from last week"
     fh --ask "what docker commands did I use yesterday?"
+    fh --ask --debug "what testing commands did I run today?"  # With debug output
 
     # Export history as JSON
     fh --export --format json --output history.json
