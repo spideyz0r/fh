@@ -204,8 +204,8 @@ func handleSearch(query string) {
 		os.Exit(0)
 	}
 
-	// Launch FZF
-	selected, err := search.FzfSearch(entries, query)
+	// Launch FZF (using ktr0731/go-fuzzyfinder for testing)
+	selected, err := search.FzfSearchKtr(entries, query)
 	if err != nil {
 		// User cancelled or error - exit silently
 		os.Exit(0)

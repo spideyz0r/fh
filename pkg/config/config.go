@@ -89,7 +89,7 @@ func Default() *Config {
 			},
 		},
 		Search: SearchConfig{
-			Limit: 0, // Default: unlimited (0 = unlimited, set to e.g. 10000 to limit for performance)
+			Limit: 0, // Default: unlimited - fuzzy finder handles large datasets efficiently
 		},
 		AI: AIConfig{
 			Enabled:        true,

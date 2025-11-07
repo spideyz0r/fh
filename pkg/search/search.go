@@ -22,13 +22,8 @@ func Search(db *storage.DB, query string, limit int) ([]*storage.HistoryEntry, e
 }
 
 // All returns all history entries (most recent first).
-// Uses Distinct to avoid loading duplicates into memory (critical for large histories).
 func All(db *storage.DB, limit int) ([]*storage.HistoryEntry, error) {
-	filters := storage.QueryFilters{
-		Limit:    limit,
-		Distinct: true, // Only load unique commands to reduce memory usage
-	}
-	return WithFilters(db, filters)
+	return Search(db, "", limit)
 }
 
 // WithFilters searches with custom filters.

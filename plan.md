@@ -1092,18 +1092,24 @@ This section tracks improvements and features that are deferred for future relea
   - **Tracked in**: Post-v1.0 or Phase 8+
 
 ### FZF Improvements
-- [x] **SQL-level DISTINCT for memory optimization** ✅
-  - **Issue**: Loading 44k+ entries into memory caused "Killed: 9" errors
-  - **Solution**: Added `Distinct` flag to QueryFilters with SQL GROUP BY optimization
+- [x] **Switched to ktr0731/go-fuzzyfinder for performance** ✅
+  - **Issue**: koki-develop/go-fzf was noticeably slow with large datasets (44k entries)
+  - **Investigation**:
+    - Tested native fzf binary - "waaaaaaaaay" faster than go-fzf
+    - Tried ktr0731/go-fuzzyfinder - also "waaaaaaaaay" faster
+  - **Solution**: Switched from koki-develop/go-fzf to ktr0731/go-fuzzyfinder
   - **Implementation**:
-    - SQL uses `SELECT MAX(id) ... GROUP BY command` to deduplicate in database
-    - Reduces 44,861 total entries to ~13,994 unique commands before loading
-    - 3x memory reduction at database level (not application level)
+    - Added github.com/ktr0731/go-fuzzyfinder dependency
+    - Created pkg/search/fzf_ktr.go with FzfSearchKtr()
+    - Includes preview window showing command details
+    - Updated main.go to use new implementation
   - **Files changed**:
-    - pkg/storage/store.go: Added Distinct support with subquery
-    - pkg/search/search.go: All() now uses Distinct=true by default
-  - **Result**: Can search unlimited history without memory issues
-  - **Performance**: Still slower than native fzf (~195ms fuzzy search on 14k entries)
+    - go.mod/go.sum: Added go-fuzzyfinder and deps (tcell, etc.)
+    - pkg/search/fzf_ktr.go: New implementation with preview
+    - cmd/fh/main.go: Switch to FzfSearchKtr()
+  - **Result**: Handles all 44,861 entries efficiently without slowdown
+  - **Performance**: Fast fuzzy search, comparable to native fzf
+  - **Bonus**: Preview window shows command metadata (time, cwd, exit code, etc.)
   - **Completed**: 2025-11-07
 
 - [x] **Unlimited search by default** ✅
@@ -1112,20 +1118,9 @@ This section tracks improvements and features that are deferred for future relea
   - **Files changed**:
     - pkg/config/config.go: Default() now sets Limit: 0
     - ~/.fh/config.yaml: Updated existing config to limit: 0
-  - **Result**: All 13,994 unique commands searchable in FZF (no hidden results)
-  - **Note**: Only works well with DISTINCT optimization above
+  - **Result**: All 44,861 commands searchable (no hidden results)
+  - **Note**: Works efficiently with ktr0731/go-fuzzyfinder
   - **Completed**: 2025-11-07
-
-- [ ] **FZF Performance - Native vs Go Library**
-  - **Issue**: go-fzf library is noticeably slower than native fzf binary
-  - **Testing**: Native fzf handles 14k entries "waaaaaaaaay" faster
-  - **Current library**: koki-develop/go-fzf (pure Go, no external deps)
-  - **Potential solutions**:
-    1. Switch to native fzf binary (soft dependency - most users have it)
-    2. Try alternative Go fzf libraries (ktr0731/go-fuzzyfinder, etc.)
-    3. Optimize current go-fzf usage (limit to 5k entries?)
-  - **Priority**: High (user experience issue)
-  - **Status**: Investigating alternatives
 
 - [ ] **PageUp/PageDown support in FZF**
   - **Issue**: go-fzf library doesn't support multi-line scrolling (PageUp/PageDown only moves 1 line)
