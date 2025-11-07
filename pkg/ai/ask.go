@@ -48,7 +48,7 @@ func Ask(db *storage.DB, userQuery string, cfg *config.Config, debug bool) (stri
 	}
 
 	// Phase 2: Execute SQL query
-	results, err := executeSQLQuery(db, sqlQuery, time.Duration(cfg.AI.SQLTimeoutSecs)*time.Second)
+	results, err := executeSQLQuery(db, sqlQuery, time.Duration(cfg.AI.SQLTimeoutSecs)*time.Second, debug)
 	if err != nil {
 		return "", fmt.Errorf("failed to execute query: %w", err)
 	}
@@ -138,7 +138,7 @@ func truncateString(s string, maxLen int) string {
 }
 
 // executeSQLQuery executes the SQL query with a timeout
-func executeSQLQuery(db *storage.DB, sqlQuery string, timeout time.Duration) ([]*storage.HistoryEntry, error) {
+func executeSQLQuery(db *storage.DB, sqlQuery string, timeout time.Duration, debug bool) ([]*storage.HistoryEntry, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
@@ -151,7 +151,9 @@ func executeSQLQuery(db *storage.DB, sqlQuery string, timeout time.Duration) ([]
 
 	// Parse results
 	var results []*storage.HistoryEntry
+	rowCount := 0
 	for rows.Next() {
+		rowCount++
 		entry := &storage.HistoryEntry{}
 		err := rows.Scan(
 			&entry.ID,
@@ -164,14 +166,21 @@ func executeSQLQuery(db *storage.DB, sqlQuery string, timeout time.Duration) ([]
 			&entry.Shell,
 			&entry.DurationMs,
 			&entry.GitBranch,
+			&entry.Hash,      // Added missing Hash field
 			&entry.SessionID,
 		)
 		if err != nil {
-			// Try scanning partial columns (in case query doesn't select all)
-			// For now, just skip rows that don't match
+			if debug {
+				fmt.Fprintf(os.Stderr, "[DEBUG] Failed to scan row %d: %v\n", rowCount, err)
+			}
+			// Skip rows that don't match expected columns
 			continue
 		}
 		results = append(results, entry)
+	}
+
+	if debug && rowCount > 0 && len(results) == 0 {
+		fmt.Fprintf(os.Stderr, "[DEBUG] WARNING: %d rows returned but 0 successfully scanned (column mismatch?)\n", rowCount)
 	}
 
 	if err := rows.Err(); err != nil {

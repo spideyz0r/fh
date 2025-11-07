@@ -57,6 +57,13 @@ Generate a SQLite query to answer this question.
 Return ONLY the SQL query, no explanation, no markdown, no code blocks.
 
 Important Notes:
+- ALWAYS use explicit column names, NEVER use SELECT *
+- REQUIRED: You MUST select ALL these columns in this EXACT order:
+  SELECT id, timestamp, command, cwd, exit_code, hostname, user, shell, duration_ms,
+         COALESCE(git_branch, '') as git_branch, COALESCE(hash, '') as hash, session_id
+  FROM history
+- Use COALESCE for nullable columns (git_branch, hash) to convert NULL to empty string
+- Do NOT omit any columns, especially hash and session_id
 - Use strftime() for date math (timestamp is unix epoch in seconds)
 - For "last week" use: timestamp > strftime('%%s', 'now', '-7 days')
 - For "yesterday" use: timestamp > strftime('%%s', 'now', '-1 day') AND timestamp < strftime('%%s', 'now', 'start of day')
@@ -111,11 +118,15 @@ Results (%d commands):
 
 Instructions:
 - Format for plain text CLI output (NO markdown, NO code blocks)
+- ALWAYS show the full command exactly as it was typed (this is REQUIRED)
+- After the full command, you can add context or explanation if helpful
 - Group logically if helpful (by time, task, etc.)
-- Be concise but informative
-- Include timestamps or context when relevant
-- If there are many similar commands, summarize them
-- Use plain text formatting only (spaces, newlines, dashes)`,
+- Include timestamps
+- Use plain text formatting only (spaces, newlines, dashes)
+- Format example:
+  [timestamp]
+  Command: <full command here>
+  <optional context/explanation>`,
 		userQuery,
 		len(results),
 		strings.Join(resultLines, "\n"),
