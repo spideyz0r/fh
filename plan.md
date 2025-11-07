@@ -1092,6 +1092,22 @@ This section tracks improvements and features that are deferred for future relea
   - **Tracked in**: Post-v1.0 or Phase 8+
 
 ### FZF Improvements
+- [x] **Deduplication for FZF display** ✅
+  - **Issue**: Database uses `keep_all` strategy for AI context, showing many duplicates in FZF
+  - **Solution**: Added `deduplicateForDisplay()` function in pkg/search/fzf.go
+  - **Implementation**: Keeps most recent occurrence of each unique command before FZF display
+  - **Result**: Clean FZF interface showing unique commands while preserving duplicates in DB for AI
+  - **Completed**: 2025-11-07
+
+- [x] **Unlimited search by default** ✅
+  - **Issue**: Default search limit of 1000 was too small for imported bash history (44k+ commands)
+  - **Solution**: Changed default search.limit from 1000 to 0 (unlimited)
+  - **Files changed**:
+    - pkg/config/config.go: Default() now sets Limit: 0
+    - ~/.fh/config.yaml: Updated existing config to limit: 0
+  - **Result**: All commands searchable in FZF, no hidden results
+  - **Completed**: 2025-11-07
+
 - [ ] **PageUp/PageDown support in FZF**
   - **Issue**: go-fzf library doesn't support multi-line scrolling (PageUp/PageDown only moves 1 line)
   - **Current workaround**: Added `pgup`/`pgdown` to keybindings, but they behave like arrow keys

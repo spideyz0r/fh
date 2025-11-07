@@ -89,7 +89,7 @@ func Default() *Config {
 			},
 		},
 		Search: SearchConfig{
-			Limit: 1000, // Default: load 1000 most recent entries (0 = unlimited)
+			Limit: 0, // Default: unlimited (0 = unlimited, set to e.g. 10000 to limit for performance)
 		},
 		AI: AIConfig{
 			Enabled:        true,
