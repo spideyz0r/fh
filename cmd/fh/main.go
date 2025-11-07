@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/spideyz0r/fh/pkg/backup"
 	"github.com/spideyz0r/fh/pkg/capture"
 	"github.com/spideyz0r/fh/pkg/config"
 	"github.com/spideyz0r/fh/pkg/export"
@@ -17,6 +18,7 @@ import (
 	"github.com/spideyz0r/fh/pkg/search"
 	"github.com/spideyz0r/fh/pkg/stats"
 	"github.com/spideyz0r/fh/pkg/storage"
+	"golang.org/x/term"
 )
 
 const (
@@ -75,6 +77,9 @@ func main() {
 			os.Exit(1)
 		}
 		handleImport(*importFormat, *importInput)
+
+	case "--backup":
+		handleBackup()
 
 	case "--version", "-v":
 		fmt.Printf("fh version %s\n", version)
@@ -479,6 +484,68 @@ func handleImport(formatStr, inputPath string) {
 	fmt.Fprintf(os.Stderr, "Imported %d commands\n", count)
 }
 
+func handleBackup() {
+	// Load configuration
+	cfg, err := config.LoadDefault()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Prompt for passphrase
+	fmt.Fprint(os.Stderr, "Enter passphrase for backup encryption: ")
+	passphrase, err := term.ReadPassword(int(os.Stdin.Fd()))
+	fmt.Fprintln(os.Stderr) // New line after password input
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error reading passphrase: %v\n", err)
+		os.Exit(1)
+	}
+
+	if len(passphrase) == 0 {
+		fmt.Fprintf(os.Stderr, "Error: passphrase cannot be empty\n")
+		os.Exit(1)
+	}
+
+	// Confirm passphrase
+	fmt.Fprint(os.Stderr, "Confirm passphrase: ")
+	confirm, err := term.ReadPassword(int(os.Stdin.Fd()))
+	fmt.Fprintln(os.Stderr) // New line after password input
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error reading passphrase confirmation: %v\n", err)
+		os.Exit(1)
+	}
+
+	if !bytes.Equal(passphrase, confirm) {
+		fmt.Fprintf(os.Stderr, "Error: passphrases do not match\n")
+		os.Exit(1)
+	}
+
+	// Create backup
+	dbPath := cfg.GetDatabasePath()
+	backupDir := cfg.Backup.Directory
+
+	fmt.Fprintf(os.Stderr, "Creating encrypted backup...\n")
+
+	info, err := backup.Create(dbPath, backupDir, string(passphrase))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error creating backup: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Fprintf(os.Stderr, "✓ Backup created: %s\n", info.Filename)
+	fmt.Fprintf(os.Stderr, "  Location: %s\n", info.Path)
+	fmt.Fprintf(os.Stderr, "  Size: %s\n", backup.FormatSize(info.Size))
+
+	// Rotate old backups
+	if cfg.Backup.KeepBackups > 0 {
+		if err := backup.Rotate(backupDir, cfg.Backup.KeepBackups); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: Failed to rotate old backups: %v\n", err)
+		} else {
+			fmt.Fprintf(os.Stderr, "  Retained %d most recent backups\n", cfg.Backup.KeepBackups)
+		}
+	}
+}
+
 func printUsage() {
 	fmt.Printf(`fh - Fast History
 Version: %s
@@ -505,6 +572,9 @@ OPTIONS:
     --import            Import history from file
         --format <fmt>      Format: auto, text, json, csv (default: auto)
         --input <file>      Input file (default: stdin)
+
+    --backup            Create encrypted backup of history database
+                        (Prompts for passphrase interactively)
 
     --version, -v       Show version
     --help, -h          Show this help
@@ -533,6 +603,9 @@ EXAMPLES:
 
     # Import from stdin (auto-detect format)
     cat history.csv | fh --import
+
+    # Create encrypted backup
+    fh --backup
 
     # Show version
     fh --version
