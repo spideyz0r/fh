@@ -646,7 +646,7 @@ fh --import --input backup.json.enc --decrypt
   ```
 - [ ] Provider interface - **Deferred to TODO**
 - [ ] Implement Gemini provider - **Deferred to TODO**
-- [ ] Write tests - **TODO**
+- [x] Write tests - ✅ **COMPLETE** (28 tests, all passing)
 
 #### 6.2 Prompt Engineering ✅ COMPLETE
 - [x] Implemented comprehensive prompts (pkg/ai/prompts.go):
@@ -674,6 +674,7 @@ fh --import --input backup.json.enc --decrypt
   - [x] SQL validation (must start with SELECT, no dangerous keywords)
   - [x] Clean SQL response (remove markdown code blocks)
   - [x] Handle errors: API errors, SQL errors, empty results, timeouts
+  - [x] Debug mode (--ask --debug) - shows prompts, responses, SQL queries, scan errors
 - [x] Implemented core logic (pkg/ai/ask.go):
   - [x] Ask() orchestrates the workflow
   - [x] generateSQLWithRetry() - retry loop with error feedback
@@ -681,9 +682,15 @@ fh --import --input backup.json.enc --decrypt
   - [x] formatResults() - format with chunking if needed
   - [x] validateSQL() - security validation
   - [x] estimateTokens() and chunkResults() - chunking logic
+  - [x] Handle NULL columns with COALESCE (hash, git_branch)
+  - [x] Full command display in formatted output
 - [x] Updated help text with examples
+- [x] Debug mode implementation with detailed logging
+- [x] Write comprehensive tests (28 tests, all passing):
+  - [x] prompts_test.go - 9 tests for prompt generation
+  - [x] ask_test.go - 13 tests for utility functions
+  - [x] openai_test.go - 6 tests for client initialization
 - [ ] Cost tracking - **Deferred**
-- [ ] Write tests - **TODO**
 
 #### 6.4 Caching & Optimization ❌ DEFERRED
 - [ ] Query caching - **Moved to TODO**
@@ -691,7 +698,7 @@ fh --import --input backup.json.enc --decrypt
 
 **Deliverable**: ✅ AI-powered natural language search with OpenAI
 
-**Testing Milestone**: No tests yet (TODO)
+**Testing Milestone**: ✅ 28 tests passing, covers prompts, query execution, and client init
 
 **Update README.md**: (Deferred to Phase 7)
 - [ ] Document AI features
@@ -1067,7 +1074,6 @@ This section tracks improvements and features that are deferred for future relea
 - [ ] **Query caching** - Cache common AI queries to reduce API costs
 - [ ] **Cost tracking** - Track token usage and estimate costs
 - [ ] **Rate limiting** - Prevent excessive API usage
-- [ ] **Unit tests for AI package** - Mock OpenAI responses and test logic
 
 ### Remote Sync (Deferred from Phase 5)
 - [ ] **SFTP Sync Implementation**
