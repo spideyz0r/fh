@@ -714,25 +714,10 @@ fh --import --input backup.json.enc --decrypt
 
 ### Tasks
 
-#### 7.1 Performance Optimization
-- [ ] Profile application with pprof:
-  - [ ] CPU profiling
-  - [ ] Memory profiling
-  - [ ] Identify bottlenecks
-- [ ] Optimize hot paths:
-  - [ ] Database queries
-  - [ ] FZF integration
-  - [ ] Save operation
-- [ ] Benchmark suite:
-  - [ ] Capture overhead
-  - [ ] Search speed
-  - [ ] Import speed
-- [ ] Target metrics:
-  - [ ] Save: <10ms
-  - [ ] Search: <500ms for 100k records
-  - [ ] FZF launch: <200ms
+#### ~~7.1 Performance Optimization~~ ✅ DEFERRED
+**Moved to TODO section** - Current performance is good enough for v1.0
 
-#### 7.2 Error Handling & Robustness
+#### 7.1 Error Handling & Robustness
 - [ ] Review all error paths
 - [ ] Add proper error messages
 - [ ] Handle edge cases:
@@ -745,7 +730,7 @@ fh --import --input backup.json.enc --decrypt
   - [ ] Config validation and reset
 - [ ] Write chaos tests
 
-#### 7.3 Documentation
+#### 7.2 Documentation
 - [ ] Complete README.md:
   - [ ] Professional landing page
   - [ ] Feature highlights
@@ -765,7 +750,7 @@ fh --import --input backup.json.enc --decrypt
 - [ ] Add man page (optional)
 - [ ] Create website (GitHub Pages) (optional)
 
-#### 7.4 User Experience
+#### 7.3 User Experience
 - [ ] Add color output (configurable):
   - [ ] Color FZF results
   - [ ] Color stats output
@@ -782,7 +767,7 @@ fh --import --input backup.json.enc --decrypt
   - [ ] Zsh completion
   - [ ] Fish completion (if supported)
 
-#### 7.5 Security Audit
+#### 7.4 Security Audit
 - [ ] Review all security-sensitive code:
   - [ ] SQL injection prevention
   - [ ] Command injection prevention
@@ -792,7 +777,7 @@ fh --import --input backup.json.enc --decrypt
 - [ ] Add security.md document
 - [ ] Consider external security audit
 
-#### 7.6 Release Process
+#### 7.5 Release Process
 - [ ] Finalize goreleaser config:
   - [ ] All target platforms
   - [ ] Homebrew formula (macOS)
@@ -807,7 +792,7 @@ fh --import --input backup.json.enc --decrypt
   - [ ] Upgrade guide
 - [ ] Tag v1.0.0 and release
 
-#### 7.7 Post-Release
+#### 7.6 Post-Release
 - [ ] Submit to package managers:
   - [ ] Homebrew
   - [ ] AUR
@@ -1052,6 +1037,28 @@ fh --save --cmd "..." --exit-code 0 --cwd /path
 ## TODO / Future Improvements
 
 This section tracks improvements and features that are deferred for future releases.
+
+### Performance Optimization (Deferred from Phase 7.1)
+- [ ] **Profile application with pprof**
+  - **Rationale**: Current performance is acceptable, profiling can be done post-v1.0
+  - **Deferred tasks**:
+    - CPU profiling
+    - Memory profiling
+    - Identify bottlenecks
+  - **Optimize hot paths**:
+    - Database queries
+    - FZF integration (already improved with ktr0731/go-fuzzyfinder)
+    - Save operation
+  - **Benchmark suite**:
+    - Capture overhead
+    - Search speed
+    - Import speed
+  - **Target metrics**:
+    - Save: <10ms (currently ~30ms, acceptable)
+    - Search: <500ms for 100k records
+    - FZF launch: <200ms (already fast with new fuzzy finder)
+  - **Priority**: Low (performance is good enough for v1.0)
+  - **Tracked in**: Post-v1.0 or Phase 8+
 
 ### AI Provider Interface (Deferred from Phase 6)
 - [ ] **LLM Provider Abstraction**
