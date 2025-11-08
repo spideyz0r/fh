@@ -734,25 +734,31 @@ fh --import --input backup.json.enc --decrypt
 
 **Completed**: 2025-11-07
 
-#### 7.2 Documentation
-- [ ] Complete README.md:
-  - [ ] Professional landing page
-  - [ ] Feature highlights
-  - [ ] Installation (multiple methods)
-  - [ ] Quick start guide
-  - [ ] Full usage documentation
-  - [ ] Configuration reference
-  - [ ] Troubleshooting guide
-  - [ ] FAQ
-  - [ ] Contributing guide
-  - [ ] Comparison with alternatives
-- [ ] Create docs/ directory:
-  - [ ] Architecture overview
-  - [ ] Database schema
-  - [ ] Shell integration details
-  - [ ] Security best practices
-- [ ] Add man page (optional)
-- [ ] Create website (GitHub Pages) (optional)
+#### 7.2 Documentation ✅ COMPLETE
+- [x] Complete README.md:
+  - [x] Professional landing page with feature highlights
+  - [x] Installation instructions (Go, from source)
+  - [x] Quick start guide
+  - [x] Full usage documentation (search, AI, stats, export/import)
+  - [x] Configuration reference with all options explained
+  - [x] Troubleshooting guide (common issues and solutions)
+  - [x] Comparison with alternatives (hishtory, atuin)
+  - [x] Roadmap showing completed phases
+  - [x] Architecture overview
+  - [x] Requirements and macOS compatibility notes
+- [x] Document all features from previous phases:
+  - [x] Phase 2: FZF search with preview window
+  - [x] Phase 3: Shell integration (bash/zsh)
+  - [x] Phase 4: Statistics and export/import
+  - [x] Phase 5: Encryption (AES-256-GCM)
+  - [x] Phase 6: AI-powered search (OpenAI)
+
+**Deferred to post-v1.0:**
+- [ ] Create docs/ directory for detailed docs
+- [ ] Add man page
+- [ ] Create website (GitHub Pages)
+
+**Completed**: 2025-11-07
 
 #### 7.3 User Experience
 - [ ] Add color output (configurable):

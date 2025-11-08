@@ -1,6 +1,6 @@
-# fh
+# fh - Fast History
 
-> A modern shell history replacement with fuzzy search, deduplication, and AI-powered queries
+> A modern shell history replacement with fuzzy search, statistics, and AI-powered queries
 
 [![CI](https://github.com/spideyz0r/fh/workflows/test/badge.svg)](https://github.com/spideyz0r/fh/actions)
 [![Coverage](https://codecov.io/gh/spideyz0r/fh/branch/main/graph/badge.svg)](https://codecov.io/gh/spideyz0r/fh)
@@ -9,215 +9,415 @@
 
 ---
 
-## 🚧 Work in Progress
+## Features
 
-**fh** is currently under active development. Check back soon for the first release!
-
-**Current Status**: Phase 3 - Shell Integration (In Progress)
-- ✅ Phase 0: Project Foundation
-- ✅ Phase 1: Core Storage & Capture
-- ✅ Phase 2: Search & FZF Integration
-- 🔄 Phase 3: Shell Integration (bash/zsh hooks, --init command)
-
----
-
-## Vision
-
-`fh` (pronounced "fast history" or "find history") is designed to be a modern replacement for traditional shell history tools. It addresses common pain points like duplicate commands, poor search capabilities, and lack of context by providing:
-
-- **Fast fuzzy search** powered by FZF
-- **Automatic deduplication** of repeated commands
-- **Rich metadata** capture (timestamps, exit codes, working directory, git branch)
-- **AI-powered semantic search** to find commands by describing what you were doing
-- **Encrypted remote backups** for syncing across machines
-- **Cross-shell support** (bash, zsh, and more to come)
+- ⚡ **Fast fuzzy search** - Handles 40k+ commands instantly with interactive preview
+- 🔍 **Smart deduplication** - Keeps your history clean while preserving context for AI
+- 📊 **Rich metadata** - Captures timestamps, exit codes, duration, working directory, git branch
+- 🤖 **AI-powered search** - Find commands using natural language (OpenAI integration)
+- 📦 **Export/Import** - Multiple formats (JSON, CSV, text) with optional AES-256 encryption
+- 📈 **Statistics** - Analyze your command usage patterns with detailed insights
+- 🐚 **Shell integration** - Seamless bash/zsh integration with Ctrl-R binding
+- 🔐 **Privacy-first** - All data stored locally, optional encrypted backups
 
 ---
 
-## Features (Planned)
+## Quick Start
 
-### Core Features
-- [x] Project foundation and CI/CD setup
-- [ ] SQLite-based history storage
-- [ ] FZF-powered interactive search
-- [ ] Automatic command deduplication
-- [ ] Bash and Zsh shell integration
-- [ ] Import from existing history files
+### Installation
 
-### Advanced Features
-- [ ] Statistics and analytics
-- [ ] Export/import in multiple formats (JSON, CSV)
-- [ ] Encrypted remote backups (SFTP)
-- [ ] AI-powered semantic search
-- [ ] Multi-machine sync
+**Using Go:**
+```bash
+go install github.com/spideyz0r/fh/cmd/fh@latest
+```
+
+**From source:**
+```bash
+git clone https://github.com/spideyz0r/fh.git
+cd fh
+make build
+make install
+```
+
+### Setup
+
+Initialize fh and import your existing history:
+
+```bash
+fh --init
+```
+
+Restart your shell:
+```bash
+# Bash
+source ~/.bashrc
+
+# Zsh
+source ~/.zshrc
+```
+
+That's it! Press **Ctrl-R** to search your history.
+
+---
+
+## Usage
+
+### Interactive Search
+
+```bash
+# Launch fuzzy search (or press Ctrl-R)
+fh
+
+# Search with pre-filter
+fh docker
+
+# Search for kubectl commands
+fh kubectl get pods
+```
+
+The fuzzy finder includes a preview window showing:
+- Full command
+- Timestamp
+- Working directory
+- Exit code
+- Duration
+- Git branch (if applicable)
+
+### AI-Powered Search
+
+Ask questions about your command history in natural language:
+
+```bash
+# Set your OpenAI API key
+export OPENAI_API_KEY='sk-...'
+
+# Find commands by asking questions
+fh --ask "what git commands did I run today?"
+fh --ask "show me failed commands from last week"
+fh --ask "what docker commands did I use yesterday?"
+fh --ask "how did I deploy the API to staging?"
+
+# Debug mode to see the SQL query
+fh --ask --debug "what testing commands did I run?"
+```
+
+The AI understands:
+- Relative dates ("yesterday", "last week", "today")
+- Command patterns and semantics
+- Your command history context
+
+### Statistics
+
+View detailed statistics about your command usage:
+
+```bash
+fh --stats
+```
+
+Shows:
+- Total and unique commands
+- Success rate
+- Most used commands
+- Commands per day average
+- Activity by hour of day
+- Top directories
+
+### Export & Backup
+
+```bash
+# Export as JSON
+fh --export --format json --output history.json
+
+# Export as CSV
+fh --export --format csv --output history.csv
+
+# Export recent 100 commands as text
+fh --export --format text --limit 100
+
+# Create encrypted backup
+fh --export --format json --output backup.json.enc --encrypt
+
+# Search and export
+fh --export --format json --search docker --output docker-commands.json
+```
+
+### Import
+
+```bash
+# Import from file (auto-detects format)
+fh --import --input history.json
+
+# Import from stdin
+cat history.csv | fh --import
+
+# Restore from encrypted backup
+fh --import --input backup.json.enc --decrypt
+```
+
+---
+
+## Configuration
+
+Configuration file: `~/.fh/config.yaml`
+
+### Default Configuration
+
+```yaml
+database:
+  path: ~/.fh/history.db
+
+deduplicate:
+  enabled: true
+  strategy: keep_all  # keep_first, keep_last, or keep_all
+
+ignore:
+  patterns:
+    - ^ls$
+    - '^ls '
+    - ^cd$
+    - '^cd '
+    - ^pwd$
+    - ^exit$
+    - ^clear$
+
+search:
+  limit: 0  # 0 = unlimited (recommended)
+
+ai:
+  enabled: true
+  provider: openai
+  model: gpt-4o-mini  # gpt-4o, gpt-4, gpt-3.5-turbo
+  sql_timeout_secs: 60
+  max_sql_retries: 10
+  max_chunk_tokens: 10000
+```
+
+### Deduplication Strategies
+
+- **`keep_first`**: Keep only the first occurrence of each command
+- **`keep_last`**: Update timestamp when command repeats (saves space)
+- **`keep_all`**: Keep all occurrences with full context (recommended for AI features)
+
+### AI Configuration
+
+Set your OpenAI API key:
+```bash
+export OPENAI_API_KEY='sk-...'
+```
+
+Or disable AI features:
+```yaml
+ai:
+  enabled: false
+```
+
+Available models:
+- `gpt-4o-mini` (default, fast and cheap)
+- `gpt-4o` (more capable, more expensive)
+- `gpt-4` (most capable, highest cost)
+- `gpt-3.5-turbo` (fastest, cheapest)
+
+---
+
+## How It Works
+
+### Shell Integration
+
+When you run `fh --init`, it:
+1. Creates `~/.fh/` directory and SQLite database
+2. Imports your existing bash/zsh history
+3. Adds hooks to your shell RC file to capture new commands
+4. Binds Ctrl-R to launch fh
+
+Every command you run is automatically saved with metadata:
+- Command text
+- Timestamp
+- Exit code
+- Duration
+- Working directory
+- Git branch (if in a git repo)
+- Hostname and user
+
+### No Daemon Required
+
+Unlike some history tools, fh doesn't run a background daemon. Command capture happens via shell hooks that call `fh --save` after each command. This is:
+- **Simpler** - No process management, no crashes
+- **Faster** - ~30ms overhead per command (unnoticeable)
+- **More reliable** - Works in any environment
+
+### Privacy & Security
+
+- **Local-first**: All data stored in `~/.fh/history.db`
+- **Encryption**: Optional AES-256-GCM encryption for backups
+- **No telemetry**: We don't collect any data
+- **Self-hosted**: Sync your own way (rsync, Dropbox, etc.)
 
 ---
 
 ## Requirements
 
-- **Bash**: Version 4.0 or later (for bash users)
-- **Zsh**: Any recent version
-- **Go**: 1.21+ (only needed for building from source)
+- **Go**: 1.21+ (only for building from source)
+- **Bash**: 4.0+ or **Zsh**: any recent version
 
 ### macOS Users
 
-macOS ships with bash 3.2 which is **not compatible** with fh. You must upgrade to bash 4.0+:
+macOS ships with bash 3.2 which is **not compatible**. Either:
 
+**Option 1: Upgrade bash**
 ```bash
-# Install bash 5.x via Homebrew
 brew install bash
-
-# Add the new bash to allowed shells
 echo /opt/homebrew/bin/bash | sudo tee -a /etc/shells
-
-# Change your default shell
 chsh -s /opt/homebrew/bin/bash
-
-# Restart your terminal
 ```
 
-Alternatively, switch to zsh (which comes with macOS and works out of the box):
+**Option 2: Use zsh (recommended)**
 ```bash
 chsh -s /bin/zsh
 ```
 
 ---
 
-## Installation
+## Troubleshooting
 
-### Quick Install (Recommended)
+### Ctrl-R doesn't work
 
+Make sure you ran `fh --init` and restarted your shell:
 ```bash
-curl -sSL https://raw.githubusercontent.com/spideyz0r/fh/main/install.sh | bash
+fh --init
+source ~/.bashrc  # or ~/.zshrc
 ```
 
-### Using Go
+### Database not found
 
-```bash
-go install github.com/spideyz0r/fh@latest
-```
-
-### Manual Download
-
-Download the latest binary from [releases](https://github.com/spideyz0r/fh/releases) and place it in your PATH.
-
-### From Source
-
-```bash
-git clone https://github.com/spideyz0r/fh.git
-cd fh
-make build
-sudo make install  # or copy ./fh to a directory in your PATH
-```
-
----
-
-## Quick Start
-
-### 1. Initialize fh
-
-This sets up shell integration and imports your existing history:
-
+Run initialization:
 ```bash
 fh --init
 ```
 
-Then restart your shell or source your rc file:
+### No history entries found
 
+Check that shell hooks are working:
 ```bash
-# For bash
-source ~/.bashrc
+# Run a test command
+echo "test"
 
-# For zsh
-source ~/.zshrc
+# Check if it was saved
+fh test
 ```
 
-### 2. Use it!
+If nothing appears, check your shell RC file (`~/.bashrc` or `~/.zshrc`) for the fh hooks.
 
+### AI search not working
+
+Make sure your OpenAI API key is set:
 ```bash
-# Search your history interactively (or just press Ctrl-R)
-fh
+export OPENAI_API_KEY='sk-...'
 
-# Search with a query
-fh kubectl
-
-# Show statistics
-fh --stats
+# Add to your shell RC file to persist
+echo "export OPENAI_API_KEY='sk-...'" >> ~/.bashrc
 ```
 
----
+### Import didn't capture all history
 
-## Usage
-
+If `--init` didn't import everything, manually import:
 ```bash
-# Launch FZF search (also bound to Ctrl-R)
-fh
+# Bash
+fh --import --format text --input ~/.bash_history
 
-# Search with pre-filter
-fh kubectl get pods
-
-# Show statistics
-fh --stats
-
-# Export history
-fh --export --format json > history.json
-
-# Sync to remote backup (after configuration)
-fh --sync
-
-# AI-powered search (requires API key configuration)
-fh --ask "what command did I use yesterday to debug the API?"
-
-# Show help
-fh --help
+# Zsh
+fh --import --format text --input ~/.zsh_history
 ```
 
 ---
 
 ## Architecture
 
-See [design.md](design.md) for detailed architecture and design decisions.
+- **Storage**: SQLite with WAL mode for performance
+- **Fuzzy Finder**: ktr0731/go-fuzzyfinder (fast pure-Go implementation)
+- **AI**: OpenAI API with smart SQL generation and retry logic
+- **Encryption**: AES-256-GCM with PBKDF2 key derivation
 
-See [plan.md](plan.md) for the complete development roadmap.
-
-### Key Design Principles
-
-- **No persistent daemon**: Simple, fast, and reliable
-- **SQLite for storage**: Fast queries, no external dependencies
-- **Shell hook integration**: Seamless capture without changing workflows
-- **Privacy-first**: All data stored locally, optional self-hosted sync
-- **Minimal dependencies**: Keep it simple and maintainable
-
----
-
-## Documentation
-
-- [Design Document](design.md) - Architecture and technical decisions
-- [Development Plan](plan.md) - Detailed roadmap and tasks
-- [Contributing Guide](CONTRIBUTING.md) - How to contribute
+See [design.md](design.md) for detailed architecture.
+See [plan.md](plan.md) for development roadmap.
 
 ---
 
 ## Comparison with Alternatives
 
-| Feature | bash/zsh history | hishtory | fh |
-|---------|------------------|----------|----------|
-| FZF search | Manual binding | ✓ | ✓ (planned) |
-| Deduplication | ✗ | ✓ | ✓ (planned) |
-| Rich metadata | Limited | ✓ | ✓ (planned) |
-| Remote sync | ✗ | ✓ (cloud) | ✓ (self-hosted, planned) |
-| AI search | ✗ | ✗ | ✓ (planned) |
-| Encryption | ✗ | ✓ | ✓ (planned) |
-| No daemon | ✓ | ✗ | ✓ |
+| Feature | bash/zsh history | hishtory | atuin | fh |
+|---------|------------------|----------|-------|-----|
+| Fuzzy search | Manual | ✓ | ✓ | ✓ |
+| Rich metadata | Limited | ✓ | ✓ | ✓ |
+| Statistics | ✗ | ✓ | ✓ | ✓ |
+| AI search | ✗ | ✗ | ✗ | ✓ |
+| Export/Import | ✗ | ✓ | ✓ | ✓ |
+| Encryption | ✗ | ✓ | ✓ | ✓ |
+| No daemon | ✓ | ✗ | ✗ | ✓ |
+| Self-hosted sync | ✗ | ✗ | ✓ | Manual |
 
 **Why fh?**
-- **No daemon required** - simpler and more reliable than tools requiring background processes
-- **AI-powered search** - find commands by describing what you were doing
-- **Self-hosted sync** - your data stays under your control
-- **Straightforward architecture** - easy to understand, modify, and contribute to
+- **No daemon** - Simpler, more reliable
+- **AI-powered search** - Find commands by describing what you did
+- **Fast** - Handles 40k+ commands with instant fuzzy search
+- **Privacy-first** - Local storage, optional encrypted backups
+- **Simple architecture** - Easy to understand and modify
+
+---
+
+## Development
+
+```bash
+# Build
+make build
+
+# Run tests
+make test
+
+# Run linters
+make lint
+
+# Install locally
+make install
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines.
+
+---
+
+## Roadmap
+
+- [x] **Phase 0**: Project foundation and CI/CD
+- [x] **Phase 1**: Core storage and capture
+- [x] **Phase 2**: Search and FZF integration
+- [x] **Phase 3**: Shell integration (bash/zsh)
+- [x] **Phase 4**: Statistics and export/import
+- [x] **Phase 5**: Encryption for backups
+- [x] **Phase 6**: AI-powered search
+- [ ] **Phase 7**: Polish and v1.0 release (in progress)
+
+See [plan.md](plan.md) for detailed roadmap.
 
 ---
 
 ## License
 
 [GNU General Public License v3.0](LICENSE)
+
+---
+
+## Contributing
+
+Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+---
+
+## Credits
+
+Built with:
+- [go-fuzzyfinder](https://github.com/ktr0731/go-fuzzyfinder) - Fast fuzzy finder
+- [OpenAI Go SDK](https://github.com/openai/openai-go) - AI integration
+- [SQLite](https://www.sqlite.org/) - Reliable local storage
+
+---
+
+**Developed by [@spideyz0r](https://github.com/spideyz0r) with AI assistance from Claude**
