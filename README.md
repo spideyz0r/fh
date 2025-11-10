@@ -110,13 +110,29 @@ deduplicate:
   enabled: true
   strategy: keep_all  # keep_first, keep_last, or keep_all
 
+ignore:
+  patterns:
+    - ^ls$
+    - '^ls '
+    - ^cd$
+    - '^cd '
+    - ^pwd$
+    - ^exit$
+    - ^clear$
+
+search:
+  limit: 0  # 0 = unlimited (recommended)
+
 ai:
   enabled: true
   provider: openai
   model: gpt-4o-mini  # gpt-4o, gpt-4, gpt-3.5-turbo
+  sql_timeout_secs: 60
+  max_sql_retries: 10
+  max_chunk_tokens: 10000
 ```
 
-Set OpenAI API key for AI features:
+For AI features, add your OpenAI API key to your shell RC file (`~/.bashrc` or `~/.zshrc`):
 ```bash
 export OPENAI_API_KEY='sk-...'
 ```
@@ -149,7 +165,7 @@ echo /opt/homebrew/bin/bash | sudo tee -a /etc/shells
 chsh -s /opt/homebrew/bin/bash
 ```
 
-**Option 2: Use zsh (recommended)**
+**Option 2: Use zsh**
 ```bash
 chsh -s /bin/zsh
 ```
