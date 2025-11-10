@@ -158,145 +158,18 @@ chsh -s /bin/zsh
 
 ## Troubleshooting
 
-### Ctrl-R doesn't work
+**Ctrl-R doesn't work**: Run `fh --init` and restart your shell (`source ~/.bashrc` or `source ~/.zshrc`)
 
-Make sure you ran `fh --init` and restarted your shell:
-```bash
-fh --init
-source ~/.bashrc  # or ~/.zshrc
-```
+**AI search not working**: Set `export OPENAI_API_KEY='sk-...'` in your shell RC file
 
-### Database not found
-
-Run initialization:
-```bash
-fh --init
-```
-
-### No history entries found
-
-Check that shell hooks are working:
-```bash
-# Run a test command
-echo "test"
-
-# Check if it was saved
-fh test
-```
-
-If nothing appears, check your shell RC file (`~/.bashrc` or `~/.zshrc`) for the fh hooks.
-
-### AI search not working
-
-Make sure your OpenAI API key is set:
-```bash
-export OPENAI_API_KEY='sk-...'
-
-# Add to your shell RC file to persist
-echo "export OPENAI_API_KEY='sk-...'" >> ~/.bashrc
-```
-
-### Import didn't capture all history
-
-If `--init` didn't import everything, manually import:
-```bash
-# Bash
-fh --import --format text --input ~/.bash_history
-
-# Zsh
-fh --import --format text --input ~/.zsh_history
-```
-
----
-
-## Architecture
-
-- **Storage**: SQLite with WAL mode for performance
-- **Fuzzy Finder**: ktr0731/go-fuzzyfinder (fast pure-Go implementation)
-- **AI**: OpenAI API with smart SQL generation and retry logic
-- **Encryption**: AES-256-GCM with PBKDF2 key derivation
-
-See [design.md](design.md) for detailed architecture.
-See [plan.md](plan.md) for development roadmap.
-
----
-
-## Comparison with Alternatives
-
-| Feature | bash/zsh history | hishtory | atuin | fh |
-|---------|------------------|----------|-------|-----|
-| Fuzzy search | Manual | ✓ | ✓ | ✓ |
-| Rich metadata | Limited | ✓ | ✓ | ✓ |
-| Statistics | ✗ | ✓ | ✓ | ✓ |
-| AI search | ✗ | ✗ | ✗ | ✓ |
-| Export/Import | ✗ | ✓ | ✓ | ✓ |
-| Encryption | ✗ | ✓ | ✓ | ✓ |
-| No daemon | ✓ | ✗ | ✗ | ✓ |
-| Self-hosted sync | ✗ | ✗ | ✓ | Manual |
-
-**Why fh?**
-- **No daemon** - Simpler, more reliable
-- **AI-powered search** - Find commands by describing what you did
-- **Fast** - Handles 40k+ commands with instant fuzzy search
-- **Privacy-first** - Local storage, optional encrypted backups
-- **Simple architecture** - Easy to understand and modify
-
----
-
-## Development
-
-```bash
-# Build
-make build
-
-# Run tests
-make test
-
-# Run linters
-make lint
-
-# Install locally
-make install
-```
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines.
-
----
-
-## Roadmap
-
-- [x] **Phase 0**: Project foundation and CI/CD
-- [x] **Phase 1**: Core storage and capture
-- [x] **Phase 2**: Search and FZF integration
-- [x] **Phase 3**: Shell integration (bash/zsh)
-- [x] **Phase 4**: Statistics and export/import
-- [x] **Phase 5**: Encryption for backups
-- [x] **Phase 6**: AI-powered search
-- [ ] **Phase 7**: Polish and v1.0 release (in progress)
-
-See [plan.md](plan.md) for detailed roadmap.
-
----
+**No history entries**: Check that shell hooks are in `~/.bashrc` or `~/.zshrc`
 
 ## License
 
 [GNU General Public License v3.0](LICENSE)
 
----
-
 ## Contributing
 
-Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines.
 
----
-
-## Credits
-
-Built with:
-- [go-fuzzyfinder](https://github.com/ktr0731/go-fuzzyfinder) - Fast fuzzy finder
-- [OpenAI Go SDK](https://github.com/openai/openai-go) - AI integration
-- [SQLite](https://www.sqlite.org/) - Reliable local storage
-
----
-
-**Developed by [@spideyz0r](https://github.com/spideyz0r) with AI assistance from Claude**
+Built with [go-fuzzyfinder](https://github.com/ktr0731/go-fuzzyfinder), [OpenAI Go SDK](https://github.com/openai/openai-go), and SQLite.
