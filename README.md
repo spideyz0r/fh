@@ -2,6 +2,8 @@
 
 A modern shell history replacement with fuzzy search, statistics, and AI-powered queries.
 
+> **Note:** This application was built as an experiment in AI-assisted development - the entire codebase was created through collaborative coding with Claude.
+
 ## Features
 
 - **Fast fuzzy search** - Handles 40k+ commands instantly with interactive preview
