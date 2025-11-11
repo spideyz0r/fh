@@ -256,6 +256,61 @@ func importJSON(db *storage.DB, r io.Reader, dedupConfig storage.DedupConfig) (i
 	return count, nil
 }
 
+// parseCSVRow parses a CSV record into a HistoryEntry
+func parseCSVRow(record []string, colMap map[string]int) *storage.HistoryEntry {
+	entry := &storage.HistoryEntry{}
+
+	// Command (required)
+	if idx, ok := colMap["command"]; ok && idx < len(record) {
+		entry.Command = record[idx]
+	}
+	if entry.Command == "" {
+		return nil
+	}
+
+	// Timestamp (parse from ISO 8601 if present)
+	if idx, ok := colMap["timestamp"]; ok && idx < len(record) {
+		// Try to parse as ISO 8601 first
+		if t, err := time.Parse(time.RFC3339, record[idx]); err == nil {
+			entry.Timestamp = t.Unix()
+		} else if ts, err := strconv.ParseInt(record[idx], 10, 64); err == nil {
+			// Fallback to Unix timestamp
+			entry.Timestamp = ts
+		}
+	}
+	if entry.Timestamp == 0 {
+		entry.Timestamp = time.Now().Unix()
+	}
+
+	// Other fields
+	parseCSVStringField(record, colMap, "cwd", &entry.Cwd)
+	parseCSVStringField(record, colMap, "hostname", &entry.Hostname)
+	parseCSVStringField(record, colMap, "user", &entry.User)
+	parseCSVStringField(record, colMap, "shell", &entry.Shell)
+	parseCSVStringField(record, colMap, "git_branch", &entry.GitBranch)
+	parseCSVStringField(record, colMap, "session_id", &entry.SessionID)
+
+	if idx, ok := colMap["exit_code"]; ok && idx < len(record) {
+		if code, err := strconv.Atoi(record[idx]); err == nil {
+			entry.ExitCode = code
+		}
+	}
+	if idx, ok := colMap["duration_ms"]; ok && idx < len(record) {
+		if dur, err := strconv.ParseInt(record[idx], 10, 64); err == nil {
+			entry.DurationMs = dur
+		}
+	}
+
+	return entry
+}
+
+// parseCSVStringField is a helper to parse string fields from CSV
+func parseCSVStringField(record []string, colMap map[string]int, fieldName string, dest *string) {
+	if idx, ok := colMap[fieldName]; ok && idx < len(record) {
+		*dest = record[idx]
+	}
+}
+
 // importCSV imports from CSV format
 func importCSV(db *storage.DB, r io.Reader, dedupConfig storage.DedupConfig) (int, error) {
 	reader := csv.NewReader(r)
@@ -288,58 +343,9 @@ func importCSV(db *storage.DB, r io.Reader, dedupConfig storage.DedupConfig) (in
 		}
 
 		// Parse entry from CSV row
-		entry := &storage.HistoryEntry{}
-
-		// Command (required)
-		if idx, ok := colMap["command"]; ok && idx < len(record) {
-			entry.Command = record[idx]
-		}
-		if entry.Command == "" {
+		entry := parseCSVRow(record, colMap)
+		if entry == nil {
 			continue
-		}
-
-		// Timestamp (parse from ISO 8601 if present)
-		if idx, ok := colMap["timestamp"]; ok && idx < len(record) {
-			// Try to parse as ISO 8601 first
-			if t, err := time.Parse(time.RFC3339, record[idx]); err == nil {
-				entry.Timestamp = t.Unix()
-			} else if ts, err := strconv.ParseInt(record[idx], 10, 64); err == nil {
-				// Fallback to Unix timestamp
-				entry.Timestamp = ts
-			}
-		}
-		if entry.Timestamp == 0 {
-			entry.Timestamp = time.Now().Unix()
-		}
-
-		// Other fields
-		if idx, ok := colMap["cwd"]; ok && idx < len(record) {
-			entry.Cwd = record[idx]
-		}
-		if idx, ok := colMap["exit_code"]; ok && idx < len(record) {
-			if code, err := strconv.Atoi(record[idx]); err == nil {
-				entry.ExitCode = code
-			}
-		}
-		if idx, ok := colMap["hostname"]; ok && idx < len(record) {
-			entry.Hostname = record[idx]
-		}
-		if idx, ok := colMap["user"]; ok && idx < len(record) {
-			entry.User = record[idx]
-		}
-		if idx, ok := colMap["shell"]; ok && idx < len(record) {
-			entry.Shell = record[idx]
-		}
-		if idx, ok := colMap["duration_ms"]; ok && idx < len(record) {
-			if dur, err := strconv.ParseInt(record[idx], 10, 64); err == nil {
-				entry.DurationMs = dur
-			}
-		}
-		if idx, ok := colMap["git_branch"]; ok && idx < len(record) {
-			entry.GitBranch = record[idx]
-		}
-		if idx, ok := colMap["session_id"]; ok && idx < len(record) {
-			entry.SessionID = record[idx]
 		}
 
 		if err := db.InsertWithDedup(entry, dedupConfig); err != nil {
