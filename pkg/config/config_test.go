@@ -268,3 +268,104 @@ func TestLoadDefault(t *testing.T) {
 	assert.True(t, cfg.Deduplicate.Enabled)
 	assert.NotEmpty(t, cfg.Database.Path)
 }
+
+func TestClearCache(t *testing.T) {
+	// Load a config to populate cache
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yaml")
+	
+	cfg := Default()
+	err := cfg.Save(configPath)
+	require.NoError(t, err)
+	
+	// Load to populate cache
+	_, err = Load(configPath)
+	require.NoError(t, err)
+	
+	// Clear cache
+	ClearCache()
+	
+	// Should be able to load again (cache cleared)
+	cfg2, err := Load(configPath)
+	require.NoError(t, err)
+	assert.NotNil(t, cfg2)
+}
+
+func TestSave_InvalidPath(t *testing.T) {
+	cfg := Default()
+	
+	// Try to save to an invalid path (root directory without permission)
+	err := cfg.Save("/invalid/path/that/cannot/be/created/config.yaml")
+	assert.Error(t, err)
+}
+
+func TestLoad_CacheHit(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yaml")
+	
+	cfg := Default()
+	cfg.Database.Path = "/cache/test.db"
+	err := cfg.Save(configPath)
+	require.NoError(t, err)
+	
+	// First load - cache miss
+	cfg1, err := Load(configPath)
+	require.NoError(t, err)
+	assert.Equal(t, "/cache/test.db", cfg1.Database.Path)
+	
+	// Second load - should hit cache
+	cfg2, err := Load(configPath)
+	require.NoError(t, err)
+	assert.Equal(t, "/cache/test.db", cfg2.Database.Path)
+	
+	// Should be the same instance from cache
+	assert.Equal(t, cfg1, cfg2)
+}
+
+func TestValidate_EdgeCases(t *testing.T) {
+	t.Run("empty config", func(t *testing.T) {
+		cfg := &Config{}
+		err := cfg.Validate()
+		assert.Error(t, err)
+	})
+	
+	t.Run("valid config with empty ignore patterns", func(t *testing.T) {
+		cfg := &Config{
+			Database: DatabaseConfig{Path: "/tmp/test.db"},
+			Deduplicate: DeduplicateConfig{
+				Enabled:  false,
+				Strategy: "keep_all",
+			},
+			Ignore: IgnoreConfig{Patterns: []string{}},
+		}
+		err := cfg.Validate()
+		assert.NoError(t, err)
+	})
+}
+
+func TestGetDedupConfig_AllStrategies(t *testing.T) {
+	strategies := []struct {
+		input    string
+		expected storage.DedupStrategy
+	}{
+		{"keep_first", storage.KeepFirst},
+		{"keep_last", storage.KeepLast},
+		{"keep_all", storage.KeepAll},
+		{"KEEP_FIRST", storage.KeepAll}, // Invalid, defaults to KeepAll
+		{"", storage.KeepAll},           // Empty, defaults to KeepAll
+	}
+	
+	for _, s := range strategies {
+		t.Run(s.input, func(t *testing.T) {
+			cfg := &Config{
+				Database: DatabaseConfig{Path: "/tmp/test.db"},
+				Deduplicate: DeduplicateConfig{
+					Enabled:  true,
+					Strategy: s.input,
+				},
+			}
+			dedupCfg := cfg.GetDedupConfig()
+			assert.Equal(t, s.expected, dedupCfg.Strategy)
+		})
+	}
+}
