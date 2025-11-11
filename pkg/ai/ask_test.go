@@ -395,3 +395,56 @@ func TestChunkResults_LargeDataset(t *testing.T) {
 	}
 	assert.Equal(t, 1000, totalEntries)
 }
+
+func TestTruncateString(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		maxLen   int
+		expected string
+	}{
+		{
+			name:     "String shorter than limit",
+			input:    "Hello",
+			maxLen:   10,
+			expected: "Hello",
+		},
+		{
+			name:     "String equal to limit",
+			input:    "HelloWorld",
+			maxLen:   10,
+			expected: "HelloWorld",
+		},
+		{
+			name:     "String longer than limit",
+			input:    "Hello World, this is a long string",
+			maxLen:   10,
+			expected: "Hello Worl...",
+		},
+		{
+			name:     "Empty string",
+			input:    "",
+			maxLen:   10,
+			expected: "",
+		},
+		{
+			name:     "Single character truncation",
+			input:    "AB",
+			maxLen:   1,
+			expected: "A...",
+		},
+		{
+			name:     "Zero length limit",
+			input:    "Hello",
+			maxLen:   0,
+			expected: "...",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := truncateString(tt.input, tt.maxLen)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}

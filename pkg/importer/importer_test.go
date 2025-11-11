@@ -417,6 +417,111 @@ func TestParseZshLine(t *testing.T) {
 	})
 }
 
+func TestParseBashHistory(t *testing.T) {
+	t.Run("parse from home directory if file exists", func(t *testing.T) {
+		// This test will attempt to read from the actual home directory
+		// If the file doesn't exist, it should return empty slice without error
+		entries, err := ParseBashHistory()
+		require.NoError(t, err)
+		// We can't assert on content since it depends on the environment
+		// but we can verify it returns a valid slice
+		assert.NotNil(t, entries)
+	})
+}
+
+func TestParseZshHistory(t *testing.T) {
+	t.Run("parse from home directory if file exists", func(t *testing.T) {
+		// This test will attempt to read from the actual home directory
+		// If the file doesn't exist, it should return empty slice without error
+		entries, err := ParseZshHistory()
+		require.NoError(t, err)
+		// We can't assert on content since it depends on the environment
+		// but we can verify it returns a valid slice
+		assert.NotNil(t, entries)
+	})
+}
+
+func TestImportBashHistory_Integration(t *testing.T) {
+	t.Run("import bash history with various entries", func(t *testing.T) {
+		db := testutil.NewTestDB(t)
+		defer db.Close()
+
+		// Create a temporary bash history file
+		tempDir := t.TempDir()
+		histFile := filepath.Join(tempDir, ".bash_history")
+
+		// Create a bash history with various scenarios
+		content := `#1234567890
+ls -la /tmp
+cd /home
+#1234567900
+git status
+git add .
+#1234567910
+docker ps -a`
+
+		err := os.WriteFile(histFile, []byte(content), 0644)
+		require.NoError(t, err)
+
+		dedupConfig := storage.DedupConfig{
+			Enabled:  true,
+			Strategy: storage.KeepAll,
+		}
+
+		result, err := ImportFromFile(db, capture.ShellBash, histFile, dedupConfig)
+		require.NoError(t, err)
+
+		// Should have imported all unique commands
+		assert.Greater(t, result.ImportedEntries, 0)
+		assert.Equal(t, result.TotalEntries, result.ImportedEntries+result.SkippedEntries)
+	})
+}
+
+func TestImportZshHistory_Integration(t *testing.T) {
+	t.Run("import zsh history with extended format", func(t *testing.T) {
+		db := testutil.NewTestDB(t)
+		defer db.Close()
+
+		tempDir := t.TempDir()
+		histFile := filepath.Join(tempDir, ".zsh_history")
+
+		// Mix of extended and plain format
+		content := `: 1234567890:5;ls -la /tmp
+: 1234567900:0;cd /home/user
+git status --short
+: 1234567910:15;docker compose up -d`
+
+		err := os.WriteFile(histFile, []byte(content), 0644)
+		require.NoError(t, err)
+
+		dedupConfig := storage.DedupConfig{
+			Enabled:  true,
+			Strategy: storage.KeepAll,
+		}
+
+		result, err := ImportFromFile(db, capture.ShellZsh, histFile, dedupConfig)
+		require.NoError(t, err)
+
+		assert.Equal(t, 4, result.TotalEntries)
+		assert.Greater(t, result.ImportedEntries, 0)
+		
+		// Verify duration conversion
+		entries, err := db.Query(storage.QueryFilters{Limit: 10})
+		require.NoError(t, err)
+		
+		// Find entry with 15 second duration
+		foundDuration := false
+		for _, entry := range entries {
+			if entry.Command == "docker compose up -d" {
+				assert.Equal(t, int64(15000), entry.DurationMs)
+				foundDuration = true
+				break
+			}
+		}
+		assert.True(t, foundDuration, "Should find docker compose entry with duration")
+	})
+}
+
 func TestImportHistory_UnsupportedShell(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	defer db.Close()
@@ -436,6 +541,103 @@ func TestImportHistory_UnsupportedShell(t *testing.T) {
 		_, err := ImportHistory(db, "", dedupConfig)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "unsupported shell")
+	})
+}
+
+func TestImportHistory_CallsBashImporter(t *testing.T) {
+	t.Run("import bash history through ImportHistory", func(t *testing.T) {
+		db := testutil.NewTestDB(t)
+		defer db.Close()
+
+		// Create a temporary bash history file in home directory
+		home, err := os.UserHomeDir()
+		require.NoError(t, err)
+
+		bashHistFile := filepath.Join(home, ".bash_history")
+		
+		// Backup existing file if it exists
+		var backupData []byte
+		if data, err := os.ReadFile(bashHistFile); err == nil {
+			backupData = data
+			defer func() {
+				// Restore backup
+				_ = os.WriteFile(bashHistFile, backupData, 0644)
+			}()
+		} else {
+			// No backup, so clean up after test
+			defer func() {
+				_ = os.Remove(bashHistFile)
+			}()
+		}
+
+		// Write test data
+		testContent := `#1234567890
+echo "test bash import"
+#1234567900
+ls -la /tmp/test`
+
+		err = os.WriteFile(bashHistFile, []byte(testContent), 0644)
+		require.NoError(t, err)
+
+		dedupConfig := storage.DedupConfig{
+			Enabled:  true,
+			Strategy: storage.KeepAll,
+		}
+
+		result, err := ImportHistory(db, capture.ShellBash, dedupConfig)
+		require.NoError(t, err)
+		
+		// Should have imported the test commands
+		assert.Equal(t, 2, result.TotalEntries)
+		assert.Greater(t, result.ImportedEntries, 0)
+	})
+}
+
+func TestImportHistory_CallsZshImporter(t *testing.T) {
+	t.Run("import zsh history through ImportHistory", func(t *testing.T) {
+		db := testutil.NewTestDB(t)
+		defer db.Close()
+
+		// Create a temporary zsh history file in home directory
+		home, err := os.UserHomeDir()
+		require.NoError(t, err)
+
+		zshHistFile := filepath.Join(home, ".zsh_history")
+		
+		// Backup existing file if it exists
+		var backupData []byte
+		if data, err := os.ReadFile(zshHistFile); err == nil {
+			backupData = data
+			defer func() {
+				// Restore backup
+				_ = os.WriteFile(zshHistFile, backupData, 0644)
+			}()
+		} else {
+			// No backup, so clean up after test
+			defer func() {
+				_ = os.Remove(zshHistFile)
+			}()
+		}
+
+		// Write test data
+		testContent := `: 1234567890:5;echo "test zsh import"
+: 1234567900:0;ls -la /tmp/test
+pwd`
+
+		err = os.WriteFile(zshHistFile, []byte(testContent), 0644)
+		require.NoError(t, err)
+
+		dedupConfig := storage.DedupConfig{
+			Enabled:  true,
+			Strategy: storage.KeepAll,
+		}
+
+		result, err := ImportHistory(db, capture.ShellZsh, dedupConfig)
+		require.NoError(t, err)
+		
+		// Should have imported the test commands
+		assert.Equal(t, 3, result.TotalEntries)
+		assert.Greater(t, result.ImportedEntries, 0)
 	})
 }
 
