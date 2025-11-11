@@ -1,9 +1,11 @@
 package storage
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -153,4 +155,60 @@ func TestClose(t *testing.T) {
 	var count int
 	err = db.conn.QueryRow("SELECT COUNT(*) FROM history").Scan(&count)
 	assert.Error(t, err)
+}
+
+func TestQueryContext(t *testing.T) {
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "test.db")
+
+	db, err := Open(dbPath)
+	require.NoError(t, err)
+	defer db.Close()
+
+	// Insert test data
+	entry := &HistoryEntry{
+		Timestamp:  1234567890,
+		Command:    "test command",
+		Cwd:        "/home/user",
+		ExitCode:   0,
+		Hostname:   "localhost",
+		User:       "testuser",
+		Shell:      "bash",
+		DurationMs: 100,
+		Hash:       GenerateHash("test command"),
+	}
+	err = db.Insert(entry)
+	require.NoError(t, err)
+
+	t.Run("query with context", func(t *testing.T) {
+		ctx := context.Background()
+		rows, err := db.QueryContext(ctx, "SELECT * FROM history WHERE command = ?", "test command")
+		require.NoError(t, err)
+		defer rows.Close()
+
+		// Verify we got results
+		hasRow := rows.Next()
+		assert.True(t, hasRow)
+	})
+
+	t.Run("query with timeout context", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		rows, err := db.QueryContext(ctx, "SELECT * FROM history")
+		require.NoError(t, err)
+		defer rows.Close()
+
+		// Should complete successfully
+		assert.NotNil(t, rows)
+	})
+
+	t.Run("query with cancelled context", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel() // Cancel immediately
+
+		_, err := db.QueryContext(ctx, "SELECT * FROM history")
+		// Should get a context error
+		assert.Error(t, err)
+	})
 }

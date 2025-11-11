@@ -1,11 +1,13 @@
 package ai
 
 import (
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/spideyz0r/fh/pkg/storage"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCleanSQLResponse(t *testing.T) {
@@ -394,4 +396,144 @@ func TestChunkResults_LargeDataset(t *testing.T) {
 		totalEntries += len(chunk)
 	}
 	assert.Equal(t, 1000, totalEntries)
+}
+
+func TestTruncateString(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		maxLen   int
+		expected string
+	}{
+		{
+			name:     "String shorter than limit",
+			input:    "Hello",
+			maxLen:   10,
+			expected: "Hello",
+		},
+		{
+			name:     "String equal to limit",
+			input:    "HelloWorld",
+			maxLen:   10,
+			expected: "HelloWorld",
+		},
+		{
+			name:     "String longer than limit",
+			input:    "Hello World, this is a long string",
+			maxLen:   10,
+			expected: "Hello Worl...",
+		},
+		{
+			name:     "Empty string",
+			input:    "",
+			maxLen:   10,
+			expected: "",
+		},
+		{
+			name:     "Single character truncation",
+			input:    "AB",
+			maxLen:   1,
+			expected: "A...",
+		},
+		{
+			name:     "Zero length limit",
+			input:    "Hello",
+			maxLen:   0,
+			expected: "...",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := truncateString(tt.input, tt.maxLen)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestExecuteSQLQuery(t *testing.T) {
+	t.Run("execute simple query", func(t *testing.T) {
+		// Create a test database with sample data
+		db := &storage.DB{}
+		tempDir := t.TempDir()
+		dbPath := filepath.Join(tempDir, "test.db")
+		
+		var err error
+		db, err = storage.Open(dbPath)
+		require.NoError(t, err)
+		defer db.Close()
+
+		// Insert test entries
+		entries := []*storage.HistoryEntry{
+			{
+				Timestamp:  time.Now().Unix() - 100,
+				Command:    "git status",
+				Cwd:        "/home/user",
+				ExitCode:   0,
+				Hostname:   "localhost",
+				User:       "testuser",
+				Shell:      "bash",
+				DurationMs: 50,
+				Hash:       storage.GenerateHash("git status"),
+				SessionID:  "session1",
+			},
+			{
+				Timestamp:  time.Now().Unix() - 50,
+				Command:    "git commit",
+				Cwd:        "/home/user",
+				ExitCode:   0,
+				Hostname:   "localhost",
+				User:       "testuser",
+				Shell:      "bash",
+				DurationMs: 100,
+				Hash:       storage.GenerateHash("git commit"),
+				SessionID:  "session2",
+			},
+		}
+
+		for _, entry := range entries {
+			err := db.Insert(entry)
+			require.NoError(t, err)
+		}
+
+		// Test executeSQLQuery with proper column selection
+		// The function expects: id, timestamp, command, cwd, exit_code, hostname, user, shell, duration_ms, git_branch, hash, session_id
+		results, err := executeSQLQuery(db, 
+			"SELECT id, timestamp, command, cwd, exit_code, hostname, user, shell, duration_ms, git_branch, hash, session_id FROM history WHERE command LIKE '%git%'", 
+			5*time.Second, false)
+		require.NoError(t, err)
+		assert.Len(t, results, 2)
+		assert.Contains(t, results[0].Command, "git")
+	})
+
+	t.Run("query with no results", func(t *testing.T) {
+		db := &storage.DB{}
+		tempDir := t.TempDir()
+		dbPath := filepath.Join(tempDir, "test.db")
+		
+		var err error
+		db, err = storage.Open(dbPath)
+		require.NoError(t, err)
+		defer db.Close()
+
+		results, err := executeSQLQuery(db, 
+			"SELECT id, timestamp, command, cwd, exit_code, hostname, user, shell, duration_ms, git_branch, hash, session_id FROM history WHERE command = 'nonexistent'", 
+			5*time.Second, false)
+		require.NoError(t, err)
+		assert.Empty(t, results)
+	})
+
+	t.Run("query with invalid SQL", func(t *testing.T) {
+		db := &storage.DB{}
+		tempDir := t.TempDir()
+		dbPath := filepath.Join(tempDir, "test.db")
+		
+		var err error
+		db, err = storage.Open(dbPath)
+		require.NoError(t, err)
+		defer db.Close()
+
+		_, err = executeSQLQuery(db, "INVALID SQL QUERY", 5*time.Second, false)
+		assert.Error(t, err)
+	})
 }
