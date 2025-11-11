@@ -1,5 +1,7 @@
 # fh - Fast History
 
+[![codecov](https://codecov.io/gh/spideyz0r/fh/branch/main/graph/badge.svg)](https://codecov.io/gh/spideyz0r/fh)
+
 A modern shell history replacement with fuzzy search, statistics, and AI-powered queries.
 
 > **Note:** This application was built as an experiment in AI-assisted development - the entire codebase was created through collaborative coding with Claude.
