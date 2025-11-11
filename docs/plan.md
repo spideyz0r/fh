@@ -782,7 +782,7 @@ fh --import --input backup.json.enc --decrypt
 - No network exposure or privilege escalation
 - Can be audited post-v1.0 if needed
 
-#### 7.3 Release Process ✅ READY FOR v1.0.0
+#### 7.3 Release Process ✅ COMPLETE
 - [x] **Verified goreleaser config** (.goreleaser.yml):
   - [x] All target platforms configured (linux, darwin, windows)
   - [x] Architectures: amd64, arm64
@@ -793,34 +793,12 @@ fh --import --input backup.json.enc --decrypt
   - [x] `.github/workflows/release.yml` - Triggers on semver tags (v*.*.*)
   - [x] `.github/workflows/test.yml` - Multi-OS, multi-Go version testing with coverage
   - [x] `.github/workflows/build-test.yml` - **NEW**: Tests goreleaser builds on every push/PR
-- [x] **Release process ready**:
-  - Release triggered by: `git tag -a v1.0.0 -m "Release v1.0.0" && git push origin v1.0.0`
-  - goreleaser automatically builds all platforms and creates GitHub release
-  - Binaries attached to release with checksums
-- [ ] **Package managers** - Deferred to Phase 7.6 (post-release):
-  - [ ] Homebrew formula (macOS)
-  - [ ] AUR package (Arch Linux)
-  - [ ] deb/rpm packages
-- [ ] Prepare release notes (before tagging v1.0.0):
-  - [ ] Changelog from git commits
-  - [ ] Feature highlights
-  - [ ] Installation instructions
-- [ ] Tag v1.0.0 and release
+- [x] **v1.0.0 Released**:
+  - Tagged and pushed v1.0.0
+  - GitHub Actions building multi-platform binaries
+  - Release notes and package managers moved to TODO
 
-#### 7.6 Post-Release
-- [ ] Submit to package managers:
-  - [ ] Homebrew
-  - [ ] AUR
-  - [ ] apt/yum repos (via packagecloud.io)
-- [ ] Announce on:
-  - [ ] Hacker News
-  - [ ] Reddit (r/commandline, r/golang)
-  - [ ] Twitter/X
-  - [ ] Dev.to
-- [ ] Monitor issues and feedback
-- [ ] Plan v1.1 based on feedback
-
-**Deliverable**: Production-ready v1.0.0 release
+**Deliverable**: ✅ v1.0.0 released to GitHub
 
 **Testing Milestone**: Overall coverage >80%, all critical paths tested
 
@@ -1167,6 +1145,28 @@ This section tracks improvements and features that are deferred for future relea
 - [ ] Search package unit tests (deferred from Phase 2)
 - [ ] CLI integration tests (deferred from Phase 2)
 - [ ] Shell hook integration tests (deferred from Phase 3)
+
+### Release Notes and Distribution (Deferred from Phase 7.3 & 7.6)
+- [ ] **Release Notes**:
+  - [ ] Create comprehensive changelog from git commits
+  - [ ] Write feature highlights for v1.0.0
+  - [ ] Document breaking changes (if any)
+  - [ ] Installation instructions
+- [ ] **Package Managers**:
+  - [ ] Homebrew formula (macOS)
+  - [ ] AUR package (Arch Linux)
+  - [ ] deb/rpm packages
+  - [ ] apt/yum repos (via packagecloud.io)
+- [ ] **Announcements**:
+  - [ ] Hacker News
+  - [ ] Reddit (r/commandline, r/golang)
+  - [ ] Twitter/X
+  - [ ] Dev.to
+- [ ] **Post-release monitoring**:
+  - [ ] Monitor GitHub issues and feedback
+  - [ ] Plan v1.1 based on feedback
+- **Priority**: Medium (helps with distribution and visibility)
+- **Tracked in**: Post-v1.0
 
 ### User Experience (Deferred from Phase 7.3)
 - [ ] **Color output** (configurable)
