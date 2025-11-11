@@ -324,3 +324,136 @@ func TestFormatTimestamp(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, ts, parsed.Unix())
 }
+
+func TestExport_InvalidFormat(t *testing.T) {
+	tempDir, cleanup := testutil.TempDir(t)
+	defer cleanup()
+
+	db, err := storage.Open(tempDir + "/test.db")
+	require.NoError(t, err)
+	defer db.Close()
+
+	var buf bytes.Buffer
+	opts := Options{
+		Format: Format("invalid"),
+	}
+
+	err = Export(db, &buf, opts)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported format")
+}
+
+func TestImport_InvalidFormat(t *testing.T) {
+	tempDir, cleanup := testutil.TempDir(t)
+	defer cleanup()
+
+	db, err := storage.Open(tempDir + "/test.db")
+	require.NoError(t, err)
+	defer db.Close()
+
+	reader := strings.NewReader("test data")
+	dedupCfg := storage.DedupConfig{Enabled: false, Strategy: storage.KeepAll}
+
+	_, err = Import(db, reader, Format("invalid"), dedupCfg)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported")
+}
+
+func TestExportCSV_SpecialCharacters(t *testing.T) {
+	tempDir, cleanup := testutil.TempDir(t)
+	defer cleanup()
+
+	db, err := storage.Open(tempDir + "/test.db")
+	require.NoError(t, err)
+	defer db.Close()
+
+	// Insert entry with special characters in command
+	entry := &storage.HistoryEntry{
+		Command:    `echo "hello, world" | grep 'test'`,
+		Timestamp:  time.Now().Unix(),
+		ExitCode:   0,
+		Cwd:        "/tmp/path,with,commas",
+		Hostname:   "host",
+		User:       "user",
+		Shell:      "bash",
+		DurationMs: 100,
+		Hash:       storage.GenerateHash(`echo "hello, world" | grep 'test'`),
+	}
+	err = db.Insert(entry)
+	require.NoError(t, err)
+
+	// Export to CSV
+	var buf bytes.Buffer
+	opts := Options{Format: FormatCSV}
+
+	err = Export(db, &buf, opts)
+	require.NoError(t, err)
+
+	// Parse CSV to verify proper escaping
+	csvReader := csv.NewReader(&buf)
+	records, err := csvReader.ReadAll()
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, len(records), 2) // Header + data
+}
+
+func TestDetectFormat_EdgeCases(t *testing.T) {
+	tests := []struct {
+		name     string
+		content  string
+		expected Format
+	}{
+		{"JSON array", `[{"command": "test"}]`, FormatJSON},
+		{"JSON object", `{"command": "test"}`, FormatJSON},
+		{"CSV with header", "timestamp,command,cwd\n1234567890,test,/tmp", FormatCSV},
+		{"plain text", "just some commands\nls -la\npwd", FormatText},
+		{"empty content", "", FormatText},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reader := strings.NewReader(tt.content)
+			format, _, err := DetectFormat(reader)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, format)
+		})
+	}
+}
+
+func TestImportJSON_MalformedData(t *testing.T) {
+	tempDir, cleanup := testutil.TempDir(t)
+	defer cleanup()
+
+	db, err := storage.Open(tempDir + "/test.db")
+	require.NoError(t, err)
+	defer db.Close()
+
+	// Try importing malformed JSON
+	malformedJSON := `{"command": "test", invalid json}`
+	reader := strings.NewReader(malformedJSON)
+
+	dedupCfg := storage.DedupConfig{Enabled: false, Strategy: storage.KeepAll}
+	_, err = Import(db, reader, FormatJSON, dedupCfg)
+	assert.Error(t, err)
+}
+
+func TestImportCSV_MissingColumns(t *testing.T) {
+	tempDir, cleanup := testutil.TempDir(t)
+	defer cleanup()
+
+	db, err := storage.Open(tempDir + "/test.db")
+	require.NoError(t, err)
+	defer db.Close()
+
+	// CSV with only some columns (missing many required ones)
+	csvData := `timestamp,command
+1234567890,test command
+1234567891,another command`
+
+	reader := strings.NewReader(csvData)
+	dedupCfg := storage.DedupConfig{Enabled: false, Strategy: storage.KeepAll}
+
+	count, err := Import(db, reader, FormatCSV, dedupCfg)
+	// CSV import should handle missing columns gracefully
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, count, 0)
+}

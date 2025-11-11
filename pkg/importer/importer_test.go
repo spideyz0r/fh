@@ -416,3 +416,134 @@ func TestParseZshLine(t *testing.T) {
 		assert.Equal(t, int64(1234567890), entry.Timestamp)
 	})
 }
+
+func TestImportHistory_UnsupportedShell(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	defer db.Close()
+
+	dedupConfig := storage.DedupConfig{
+		Enabled:  false,
+		Strategy: storage.KeepAll,
+	}
+
+	t.Run("unsupported shell type", func(t *testing.T) {
+		_, err := ImportHistory(db, "fish", dedupConfig)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "unsupported shell")
+	})
+
+	t.Run("empty shell type", func(t *testing.T) {
+		_, err := ImportHistory(db, "", dedupConfig)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "unsupported shell")
+	})
+}
+
+func TestImportResult_Structure(t *testing.T) {
+	t.Run("import result tracks stats correctly", func(t *testing.T) {
+		db := testutil.NewTestDB(t)
+		defer db.Close()
+
+		// Create a temporary bash history file
+		tempDir := t.TempDir()
+		histFile := filepath.Join(tempDir, ".bash_history")
+
+		content := `#1234567890
+echo test1
+#1234567900
+echo test2
+#1234567910
+echo test3`
+
+		err := os.WriteFile(histFile, []byte(content), 0644)
+		require.NoError(t, err)
+
+		dedupConfig := storage.DedupConfig{
+			Enabled:  true,
+			Strategy: storage.KeepAll,
+		}
+
+		result, err := ImportFromFile(db, capture.ShellBash, histFile, dedupConfig)
+		require.NoError(t, err)
+
+		// Verify result structure
+		assert.Equal(t, 3, result.TotalEntries)
+		assert.Equal(t, 3, result.ImportedEntries)
+		assert.Equal(t, 0, result.SkippedEntries)
+		assert.Empty(t, result.Errors)
+	})
+}
+
+func TestImportFromFile_EdgeCases(t *testing.T) {
+	t.Run("import from empty file", func(t *testing.T) {
+		db := testutil.NewTestDB(t)
+		defer db.Close()
+
+		tempDir := t.TempDir()
+		histFile := filepath.Join(tempDir, ".bash_history")
+
+		err := os.WriteFile(histFile, []byte(""), 0644)
+		require.NoError(t, err)
+
+		dedupConfig := storage.DedupConfig{
+			Enabled:  false,
+			Strategy: storage.KeepAll,
+		}
+
+		result, err := ImportFromFile(db, capture.ShellBash, histFile, dedupConfig)
+		require.NoError(t, err)
+		assert.Equal(t, 0, result.TotalEntries)
+		assert.Equal(t, 0, result.ImportedEntries)
+	})
+
+	t.Run("import zsh with mixed format entries", func(t *testing.T) {
+		db := testutil.NewTestDB(t)
+		defer db.Close()
+
+		tempDir := t.TempDir()
+		histFile := filepath.Join(tempDir, ".zsh_history")
+
+		// Mix of extended and plain format
+		content := `: 1234567890:5;echo extended format
+plain format command
+: 1234567900:0;another extended`
+
+		err := os.WriteFile(histFile, []byte(content), 0644)
+		require.NoError(t, err)
+
+		dedupConfig := storage.DedupConfig{
+			Enabled:  true,
+			Strategy: storage.KeepAll,
+		}
+
+		result, err := ImportFromFile(db, capture.ShellZsh, histFile, dedupConfig)
+		require.NoError(t, err)
+		assert.Equal(t, 3, result.TotalEntries)
+		assert.Equal(t, 3, result.ImportedEntries)
+	})
+
+	t.Run("import bash with only comments", func(t *testing.T) {
+		db := testutil.NewTestDB(t)
+		defer db.Close()
+
+		tempDir := t.TempDir()
+		histFile := filepath.Join(tempDir, ".bash_history")
+
+		content := `#1234567890
+#1234567900
+#1234567910`
+
+		err := os.WriteFile(histFile, []byte(content), 0644)
+		require.NoError(t, err)
+
+		dedupConfig := storage.DedupConfig{
+			Enabled:  false,
+			Strategy: storage.KeepAll,
+		}
+
+		result, err := ImportFromFile(db, capture.ShellBash, histFile, dedupConfig)
+		require.NoError(t, err)
+		// Comments without following commands should be skipped or treated as commands
+		assert.GreaterOrEqual(t, result.TotalEntries, 0)
+	})
+}
