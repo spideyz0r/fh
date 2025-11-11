@@ -166,7 +166,7 @@ func executeSQLQuery(db *storage.DB, sqlQuery string, timeout time.Duration, deb
 			&entry.Shell,
 			&entry.DurationMs,
 			&entry.GitBranch,
-			&entry.Hash,      // Added missing Hash field
+			&entry.Hash, // Added missing Hash field
 			&entry.SessionID,
 		)
 		if err != nil {

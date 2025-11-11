@@ -51,12 +51,12 @@ type SearchConfig struct {
 
 // AIConfig holds AI-powered search configuration.
 type AIConfig struct {
-	Enabled          bool   `yaml:"enabled"`            // Enable AI-powered search
-	Provider         string `yaml:"provider"`           // AI provider (openai, gemini - future)
-	Model            string `yaml:"model"`              // Model to use (gpt-4o-mini, gpt-4o, etc.)
-	SQLTimeoutSecs   int    `yaml:"sql_timeout_secs"`   // SQL query timeout in seconds
-	MaxSQLRetries    int    `yaml:"max_sql_retries"`    // Max retries for SQL generation
-	MaxChunkTokens   int    `yaml:"max_chunk_tokens"`   // Max tokens per chunk when formatting
+	Enabled        bool   `yaml:"enabled"`          // Enable AI-powered search
+	Provider       string `yaml:"provider"`         // AI provider (openai, gemini - future)
+	Model          string `yaml:"model"`            // Model to use (gpt-4o-mini, gpt-4o, etc.)
+	SQLTimeoutSecs int    `yaml:"sql_timeout_secs"` // SQL query timeout in seconds
+	MaxSQLRetries  int    `yaml:"max_sql_retries"`  // Max retries for SQL generation
+	MaxChunkTokens int    `yaml:"max_chunk_tokens"` // Max tokens per chunk when formatting
 }
 
 // Default returns the default configuration.
