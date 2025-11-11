@@ -335,3 +335,257 @@ func TestDeleteByFilter(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), count)
 }
+
+func TestDeleteByFilter_EdgeCases(t *testing.T) {
+	t.Run("delete with no matches", func(t *testing.T) {
+		db := setupTestDB(t)
+		defer db.Close()
+
+		entry := createTestEntry(t, "ls -la", 1000)
+		require.NoError(t, db.Insert(entry))
+
+		deleted, err := db.DeleteByFilter(QueryFilters{Search: "nonexistent"})
+		require.NoError(t, err)
+		assert.Equal(t, int64(0), deleted)
+
+		count, err := db.Count()
+		require.NoError(t, err)
+		assert.Equal(t, int64(1), count)
+	})
+
+	t.Run("delete by cwd", func(t *testing.T) {
+		db := setupTestDB(t)
+		defer db.Close()
+
+		entries := []*HistoryEntry{
+			createTestEntry(t, "cmd1", 1000),
+			createTestEntry(t, "cmd2", 2000),
+		}
+		entries[0].Cwd = "/home/user"
+		entries[1].Cwd = "/tmp"
+
+		for _, entry := range entries {
+			require.NoError(t, db.Insert(entry))
+		}
+
+		deleted, err := db.DeleteByFilter(QueryFilters{Cwd: "/tmp"})
+		require.NoError(t, err)
+		assert.Equal(t, int64(1), deleted)
+	})
+
+	t.Run("delete by exit code", func(t *testing.T) {
+		db := setupTestDB(t)
+		defer db.Close()
+
+		entries := []*HistoryEntry{
+			createTestEntry(t, "success", 1000),
+			createTestEntry(t, "failed", 2000),
+		}
+		entries[0].ExitCode = 0
+		entries[1].ExitCode = 1
+
+		for _, entry := range entries {
+			require.NoError(t, db.Insert(entry))
+		}
+
+		exitCode := 1
+		deleted, err := db.DeleteByFilter(QueryFilters{ExitCode: &exitCode})
+		require.NoError(t, err)
+		assert.Equal(t, int64(1), deleted)
+	})
+
+	t.Run("delete by time range", func(t *testing.T) {
+		db := setupTestDB(t)
+		defer db.Close()
+
+		entries := []*HistoryEntry{
+			createTestEntry(t, "old", 1000),
+			createTestEntry(t, "middle", 2000),
+			createTestEntry(t, "new", 3000),
+		}
+
+		for _, entry := range entries {
+			require.NoError(t, db.Insert(entry))
+		}
+
+		deleted, err := db.DeleteByFilter(QueryFilters{
+			Before: 2500,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, int64(2), deleted)
+	})
+
+	t.Run("delete from empty database", func(t *testing.T) {
+		db := setupTestDB(t)
+		defer db.Close()
+
+		deleted, err := db.DeleteByFilter(QueryFilters{Search: "anything"})
+		require.NoError(t, err)
+		assert.Equal(t, int64(0), deleted)
+	})
+}
+
+func TestQuery_EdgeCases(t *testing.T) {
+	t.Run("query with limit 0 returns all", func(t *testing.T) {
+		db := setupTestDB(t)
+		defer db.Close()
+
+		for i := 0; i < 10; i++ {
+			entry := createTestEntry(t, "cmd", int64(i*1000))
+			entry.Hash = entry.Command + string(rune(i))
+			require.NoError(t, db.Insert(entry))
+		}
+
+		results, err := db.Query(QueryFilters{Limit: 0})
+		require.NoError(t, err)
+		assert.Equal(t, 10, len(results))
+	})
+
+	t.Run("query with very large limit", func(t *testing.T) {
+		db := setupTestDB(t)
+		defer db.Close()
+
+		entry := createTestEntry(t, "cmd", 1000)
+		require.NoError(t, db.Insert(entry))
+
+		results, err := db.Query(QueryFilters{Limit: 10000})
+		require.NoError(t, err)
+		assert.Len(t, results, 1)
+	})
+
+	t.Run("query with both before and after", func(t *testing.T) {
+		db := setupTestDB(t)
+		defer db.Close()
+
+		entries := []*HistoryEntry{
+			createTestEntry(t, "cmd1", 1000),
+			createTestEntry(t, "cmd2", 2000),
+			createTestEntry(t, "cmd3", 3000),
+			createTestEntry(t, "cmd4", 4000),
+		}
+
+		for _, entry := range entries {
+			require.NoError(t, db.Insert(entry))
+		}
+
+		results, err := db.Query(QueryFilters{
+			After:  1500,
+			Before: 3500,
+		})
+		require.NoError(t, err)
+		assert.Len(t, results, 2)
+	})
+
+	t.Run("query with empty search term", func(t *testing.T) {
+		db := setupTestDB(t)
+		defer db.Close()
+
+		entry := createTestEntry(t, "test", 1000)
+		require.NoError(t, db.Insert(entry))
+
+		results, err := db.Query(QueryFilters{Search: ""})
+		require.NoError(t, err)
+		assert.Len(t, results, 1)
+	})
+}
+
+func TestInsert_EdgeCases(t *testing.T) {
+	t.Run("insert entry with empty command", func(t *testing.T) {
+		db := setupTestDB(t)
+		defer db.Close()
+
+		entry := createTestEntry(t, "", 1000)
+		err := db.Insert(entry)
+		assert.NoError(t, err)
+
+		count, err := db.Count()
+		require.NoError(t, err)
+		assert.Equal(t, int64(1), count)
+	})
+
+	t.Run("insert entry with special characters in command", func(t *testing.T) {
+		db := setupTestDB(t)
+		defer db.Close()
+
+		specialCommands := []string{
+			"echo 'hello \"world\"'",
+			"grep -r \"pattern\" | awk '{print $1}'",
+			"for i in $(seq 1 10); do echo $i; done",
+			"command with\nnewline",
+			"command with\ttab",
+		}
+
+		for _, cmd := range specialCommands {
+			entry := createTestEntry(t, cmd, time.Now().Unix())
+			entry.Hash = GenerateHash(cmd)
+			err := db.Insert(entry)
+			require.NoError(t, err)
+		}
+
+		count, err := db.Count()
+		require.NoError(t, err)
+		assert.Equal(t, int64(5), count)
+	})
+
+	t.Run("insert entry with very long command", func(t *testing.T) {
+		db := setupTestDB(t)
+		defer db.Close()
+
+		longCmd := ""
+		for i := 0; i < 1000; i++ {
+			longCmd += "a"
+		}
+
+		entry := createTestEntry(t, longCmd, 1000)
+		entry.Hash = GenerateHash(longCmd)
+		err := db.Insert(entry)
+		assert.NoError(t, err)
+	})
+
+	t.Run("insert entry with negative exit code", func(t *testing.T) {
+		db := setupTestDB(t)
+		defer db.Close()
+
+		entry := createTestEntry(t, "cmd", 1000)
+		entry.ExitCode = -1
+		err := db.Insert(entry)
+		assert.NoError(t, err)
+	})
+
+	t.Run("insert entry with negative timestamp", func(t *testing.T) {
+		db := setupTestDB(t)
+		defer db.Close()
+
+		entry := createTestEntry(t, "cmd", -1)
+		err := db.Insert(entry)
+		assert.NoError(t, err)
+	})
+}
+
+func TestCount_EdgeCases(t *testing.T) {
+	t.Run("count after delete", func(t *testing.T) {
+		db := setupTestDB(t)
+		defer db.Close()
+
+		for i := 0; i < 5; i++ {
+			entry := createTestEntry(t, "cmd", int64(i*1000))
+			entry.Hash = entry.Command + string(rune(i))
+			require.NoError(t, db.Insert(entry))
+		}
+
+		count, err := db.Count()
+		require.NoError(t, err)
+		assert.Equal(t, int64(5), count)
+
+		// Delete some
+		results, err := db.Query(QueryFilters{Limit: 2})
+		require.NoError(t, err)
+		for _, r := range results {
+			db.Delete(r.ID)
+		}
+
+		count, err = db.Count()
+		require.NoError(t, err)
+		assert.Equal(t, int64(3), count)
+	})
+}
