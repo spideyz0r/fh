@@ -17,10 +17,14 @@ import (
 // Format represents an export format
 type Format string
 
+// Export format constants
 const (
+	// FormatText exports commands as plain text (one per line)
 	FormatText Format = "text"
+	// FormatJSON exports commands as JSON with full metadata
 	FormatJSON Format = "json"
-	FormatCSV  Format = "csv"
+	// FormatCSV exports commands as CSV with all fields
+	FormatCSV Format = "csv"
 )
 
 // Options contains export configuration

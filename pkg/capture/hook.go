@@ -17,9 +17,13 @@ var zshHook string
 // ShellType represents the type of shell
 type ShellType string
 
+// Shell type constants
 const (
+	// ShellBash represents Bash shell
 	ShellBash ShellType = "bash"
-	ShellZsh  ShellType = "zsh"
+	// ShellZsh represents Zsh shell
+	ShellZsh ShellType = "zsh"
+	// ShellFish represents Fish shell
 	ShellFish ShellType = "fish"
 )
 
@@ -152,11 +156,7 @@ func InstallHook(shell ShellType, rcFile string) (*HookInstallResult, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open RC file: %w", err)
 	}
-	defer func() {
-		if err := f.Close(); err != nil {
-			// Error closing file after writing hook
-		}
-	}()
+	defer f.Close()
 
 	// Add newline before hook
 	hookWithNewline := "\n" + hookContent + "\n"

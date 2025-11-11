@@ -147,7 +147,9 @@ func executeSQLQuery(db *storage.DB, sqlQuery string, timeout time.Duration, deb
 	if err != nil {
 		return nil, fmt.Errorf("SQL error: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
 
 	// Parse results
 	var results []*storage.HistoryEntry

@@ -147,7 +147,9 @@ func (db *DB) GetDuplicates() ([]*HistoryEntry, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to query duplicates: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
 
 	var entries []*HistoryEntry
 	for rows.Next() {

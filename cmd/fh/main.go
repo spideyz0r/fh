@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/spideyz0r/fh/pkg/ai"
@@ -207,7 +206,7 @@ func handleSearch(query string) {
 	// Launch FZF (using ktr0731/go-fuzzyfinder for testing)
 	selected, err := search.FzfSearchKtr(entries, query)
 	if err != nil {
-		// User cancelled or error - exit silently
+		// User canceled or error - exit silently
 		os.Exit(0)
 	}
 
@@ -247,7 +246,7 @@ func handleInit() {
 		fmt.Fprintf(os.Stderr, "Error initializing database: %v\n", err)
 		os.Exit(1)
 	}
-	db.Close()
+	_ = db.Close()
 	fmt.Printf("✓ Initialized database: %s\n", cfg.GetDatabasePath())
 
 	// Save default config if it doesn't exist
@@ -431,7 +430,9 @@ func handleExport(formatStr, outputPath, searchTerm string, limit int, encrypt b
 			fmt.Fprintf(os.Stderr, "Error creating output file: %v\n", err)
 			os.Exit(1)
 		}
-		defer writer.Close()
+		defer func() {
+			_ = writer.Close()
+		}()
 	}
 
 	// Export
@@ -589,11 +590,8 @@ func handleImport(formatStr, inputPath string, decrypt bool) {
 			os.Exit(1)
 		}
 		format = detectedFormat
-		reader = os.NewFile(0, "pipe") // Create a fake file for the MultiReader
-		// We need to read from newReader instead
-		// This is a bit hacky, let's use a different approach
 
-		// Read all data into buffer
+		// Read all data into buffer from the new reader
 		var buf bytes.Buffer
 		if _, err := io.Copy(&buf, newReader); err != nil {
 			fmt.Fprintf(os.Stderr, "Error reading input: %v\n", err)
@@ -714,28 +712,4 @@ ENVIRONMENT:
 
 For more information, visit: https://github.com/spideyz0r/fh
 `, version)
-}
-
-// getEnvOrDefault returns environment variable value or default
-func getEnvOrDefault(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return defaultValue
-}
-
-// parseInt safely parses an integer
-func parseInt(s string, defaultValue int) int {
-	if i, err := strconv.Atoi(s); err == nil {
-		return i
-	}
-	return defaultValue
-}
-
-// parseInt64 safely parses an int64
-func parseInt64(s string, defaultValue int64) int64 {
-	if i, err := strconv.ParseInt(s, 10, 64); err == nil {
-		return i
-	}
-	return defaultValue
 }

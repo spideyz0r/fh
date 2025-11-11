@@ -106,7 +106,9 @@ func (db *DB) Query(filters QueryFilters) ([]*HistoryEntry, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to query entries: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
 
 	var entries []*HistoryEntry
 	for rows.Next() {

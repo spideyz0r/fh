@@ -37,7 +37,7 @@ func Open(path string) (*DB, error) {
 
 	// Initialize database
 	if err := db.initialize(); err != nil {
-		conn.Close()
+		_ = conn.Close()
 		return nil, fmt.Errorf("failed to initialize database: %w", err)
 	}
 
@@ -117,7 +117,9 @@ func (db *DB) applyMigrations(from, to int) error {
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() {
+		_ = tx.Rollback()
+	}()
 
 	for version := from + 1; version <= to; version++ {
 		schema := GetSchema(version)
