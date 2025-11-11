@@ -233,8 +233,8 @@ func (s *Stats) Format(topN int) string {
 		return "No commands in history yet."
 	}
 
-	result := fmt.Sprintf("fh - History Statistics\n")
-	result += fmt.Sprintf("=======================\n\n")
+	result := "fh - History Statistics\n"
+	result += "=======================\n\n"
 
 	result += fmt.Sprintf("Total Commands:   %d\n", s.TotalCommands)
 	result += fmt.Sprintf("Unique Commands:  %d\n", s.UniqueCommands)
@@ -246,7 +246,7 @@ func (s *Stats) Format(topN int) string {
 	// Top N commands
 	if len(s.TopCommands) > 0 {
 		result += fmt.Sprintf("Top %d Commands:\n", min(topN, len(s.TopCommands)))
-		result += fmt.Sprintf("----------------\n")
+		result += "----------------\n"
 		for i := 0; i < min(topN, len(s.TopCommands)); i++ {
 			cmd := s.TopCommands[i]
 			percentage := float64(cmd.Count) / float64(s.TotalCommands) * 100
@@ -263,7 +263,7 @@ func (s *Stats) Format(topN int) string {
 	// Top directories
 	if len(s.CommandsByDir) > 0 {
 		result += fmt.Sprintf("Top %d Directories:\n", min(5, len(s.CommandsByDir)))
-		result += fmt.Sprintf("-------------------\n")
+		result += "-------------------\n"
 		for i := 0; i < min(5, len(s.CommandsByDir)); i++ {
 			dir := s.CommandsByDir[i]
 			percentage := float64(dir.Count) / float64(s.TotalCommands) * 100

@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/spideyz0r/fh/pkg/ai"
@@ -207,7 +206,7 @@ func handleSearch(query string) {
 	// Launch FZF (using ktr0731/go-fuzzyfinder for testing)
 	selected, err := search.FzfSearchKtr(entries, query)
 	if err != nil {
-		// User cancelled or error - exit silently
+		// User canceled or error - exit silently
 		os.Exit(0)
 	}
 
@@ -247,7 +246,7 @@ func handleInit() {
 		fmt.Fprintf(os.Stderr, "Error initializing database: %v\n", err)
 		os.Exit(1)
 	}
-	db.Close()
+	_ = db.Close()
 	fmt.Printf("✓ Initialized database: %s\n", cfg.GetDatabasePath())
 
 	// Save default config if it doesn't exist
@@ -388,6 +387,59 @@ func handleAsk(query string, debug bool) {
 	fmt.Println(result)
 }
 
+// promptForPassphrase prompts the user for a passphrase twice and confirms they match
+func promptForPassphrase() (string, error) {
+	// Prompt for passphrase
+	fmt.Fprint(os.Stderr, "Enter passphrase for encryption: ")
+	passphrase, err := term.ReadPassword(int(os.Stdin.Fd()))
+	fmt.Fprintln(os.Stderr)
+	if err != nil {
+		return "", fmt.Errorf("error reading passphrase: %w", err)
+	}
+
+	if len(passphrase) == 0 {
+		return "", fmt.Errorf("passphrase cannot be empty")
+	}
+
+	// Confirm passphrase
+	fmt.Fprint(os.Stderr, "Confirm passphrase: ")
+	confirm, err := term.ReadPassword(int(os.Stdin.Fd()))
+	fmt.Fprintln(os.Stderr)
+	if err != nil {
+		return "", fmt.Errorf("error reading passphrase confirmation: %w", err)
+	}
+
+	if !bytes.Equal(passphrase, confirm) {
+		return "", fmt.Errorf("passphrases do not match")
+	}
+
+	return string(passphrase), nil
+}
+
+// exportWithEncryption exports data to a buffer, encrypts it, and writes to the writer
+func exportWithEncryption(db *storage.DB, writer io.Writer, opts export.Options) error {
+	var buf bytes.Buffer
+	if err := export.Export(db, &buf, opts); err != nil {
+		return fmt.Errorf("error exporting: %w", err)
+	}
+
+	passphrase, err := promptForPassphrase()
+	if err != nil {
+		return err
+	}
+
+	encrypted, err := crypto.Encrypt(buf.Bytes(), passphrase)
+	if err != nil {
+		return fmt.Errorf("error encrypting: %w", err)
+	}
+
+	if _, err := writer.Write(encrypted); err != nil {
+		return fmt.Errorf("error writing encrypted data: %w", err)
+	}
+
+	return nil
+}
+
 func handleExport(formatStr, outputPath, searchTerm string, limit int, encrypt bool) {
 	// Parse format
 	format, err := export.ParseFormat(formatStr)
@@ -431,7 +483,9 @@ func handleExport(formatStr, outputPath, searchTerm string, limit int, encrypt b
 			fmt.Fprintf(os.Stderr, "Error creating output file: %v\n", err)
 			os.Exit(1)
 		}
-		defer writer.Close()
+		defer func() {
+			_ = writer.Close()
+		}()
 	}
 
 	// Export
@@ -440,52 +494,10 @@ func handleExport(formatStr, outputPath, searchTerm string, limit int, encrypt b
 		Filters: filters,
 	}
 
-	// If encryption is requested, export to buffer first
+	// If encryption is requested, use encryption helper
 	if encrypt {
-		var buf bytes.Buffer
-		if err := export.Export(db, &buf, opts); err != nil {
-			fmt.Fprintf(os.Stderr, "Error exporting: %v\n", err)
-			os.Exit(1)
-		}
-
-		// Prompt for passphrase
-		fmt.Fprint(os.Stderr, "Enter passphrase for encryption: ")
-		passphrase, err := term.ReadPassword(int(os.Stdin.Fd()))
-		fmt.Fprintln(os.Stderr)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error reading passphrase: %v\n", err)
-			os.Exit(1)
-		}
-
-		if len(passphrase) == 0 {
-			fmt.Fprintf(os.Stderr, "Error: passphrase cannot be empty\n")
-			os.Exit(1)
-		}
-
-		// Confirm passphrase
-		fmt.Fprint(os.Stderr, "Confirm passphrase: ")
-		confirm, err := term.ReadPassword(int(os.Stdin.Fd()))
-		fmt.Fprintln(os.Stderr)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error reading passphrase confirmation: %v\n", err)
-			os.Exit(1)
-		}
-
-		if !bytes.Equal(passphrase, confirm) {
-			fmt.Fprintf(os.Stderr, "Error: passphrases do not match\n")
-			os.Exit(1)
-		}
-
-		// Encrypt
-		encrypted, err := crypto.Encrypt(buf.Bytes(), string(passphrase))
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error encrypting: %v\n", err)
-			os.Exit(1)
-		}
-
-		// Write encrypted data
-		if _, err := writer.Write(encrypted); err != nil {
-			fmt.Fprintf(os.Stderr, "Error writing encrypted data: %v\n", err)
+		if err := exportWithEncryption(db, writer, opts); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 	} else {
@@ -504,6 +516,69 @@ func handleExport(formatStr, outputPath, searchTerm string, limit int, encrypt b
 			fmt.Fprintf(os.Stderr, "Exported to %s\n", outputPath)
 		}
 	}
+}
+
+// promptForDecryptPassphrase prompts for a decryption passphrase
+func promptForDecryptPassphrase() (string, error) {
+	fmt.Fprint(os.Stderr, "Enter passphrase to decrypt: ")
+	passphrase, err := term.ReadPassword(int(os.Stdin.Fd()))
+	fmt.Fprintln(os.Stderr)
+	if err != nil {
+		return "", fmt.Errorf("error reading passphrase: %w", err)
+	}
+
+	if len(passphrase) == 0 {
+		return "", fmt.Errorf("passphrase cannot be empty")
+	}
+
+	return string(passphrase), nil
+}
+
+// decryptReader reads encrypted data from a reader and returns a reader with decrypted data
+func decryptReader(reader io.Reader) (io.Reader, error) {
+	// Read all encrypted data
+	encryptedData, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, fmt.Errorf("error reading encrypted data: %w", err)
+	}
+
+	passphrase, err := promptForDecryptPassphrase()
+	if err != nil {
+		return nil, err
+	}
+
+	// Decrypt
+	decrypted, err := crypto.Decrypt(encryptedData, passphrase)
+	if err != nil {
+		return nil, fmt.Errorf("error decrypting: %w", err)
+	}
+
+	return bytes.NewReader(decrypted), nil
+}
+
+// importWithAutoDetect handles import with format auto-detection
+func importWithAutoDetect(db *storage.DB, reader io.Reader, dedupConfig storage.DedupConfig) error {
+	detectedFormat, newReader, err := export.DetectFormat(reader)
+	if err != nil {
+		return fmt.Errorf("error detecting format: %w", err)
+	}
+
+	// Read all data into buffer from the new reader
+	var buf bytes.Buffer
+	if _, err := io.Copy(&buf, newReader); err != nil {
+		return fmt.Errorf("error reading input: %w", err)
+	}
+
+	fmt.Fprintf(os.Stderr, "Auto-detected format: %s\n", detectedFormat)
+
+	// Import from buffer
+	count, err := export.Import(db, &buf, detectedFormat, dedupConfig)
+	if err != nil {
+		return fmt.Errorf("error importing: %w", err)
+	}
+
+	fmt.Fprintf(os.Stderr, "Imported %d commands\n", count)
+	return nil
 }
 
 func handleImport(formatStr, inputPath string, decrypt bool) {
@@ -547,82 +622,32 @@ func handleImport(formatStr, inputPath string, decrypt bool) {
 
 	// Handle decryption if requested
 	if decrypt {
-		// Read all encrypted data
-		encryptedData, err := io.ReadAll(reader)
+		reader, err = decryptReader(reader)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error reading encrypted data: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
-
-		// Prompt for passphrase
-		fmt.Fprint(os.Stderr, "Enter passphrase to decrypt: ")
-		passphrase, err := term.ReadPassword(int(os.Stdin.Fd()))
-		fmt.Fprintln(os.Stderr)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error reading passphrase: %v\n", err)
-			os.Exit(1)
-		}
-
-		if len(passphrase) == 0 {
-			fmt.Fprintf(os.Stderr, "Error: passphrase cannot be empty\n")
-			os.Exit(1)
-		}
-
-		// Decrypt
-		decrypted, err := crypto.Decrypt(encryptedData, string(passphrase))
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error decrypting: %v\n", err)
-			os.Exit(1)
-		}
-
-		// Use decrypted data as reader
-		reader = bytes.NewReader(decrypted)
 	}
 
-	// Determine format
-	var format export.Format
+	dedupConfig := cfg.GetDedupConfig()
+
+	// Handle auto-detect format
 	if formatStr == "auto" {
-		// Auto-detect format
-		detectedFormat, newReader, err := export.DetectFormat(reader)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error detecting format: %v\n", err)
+		if err := importWithAutoDetect(db, reader, dedupConfig); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
-		format = detectedFormat
-		reader = os.NewFile(0, "pipe") // Create a fake file for the MultiReader
-		// We need to read from newReader instead
-		// This is a bit hacky, let's use a different approach
-
-		// Read all data into buffer
-		var buf bytes.Buffer
-		if _, err := io.Copy(&buf, newReader); err != nil {
-			fmt.Fprintf(os.Stderr, "Error reading input: %v\n", err)
-			os.Exit(1)
-		}
-
-		fmt.Fprintf(os.Stderr, "Auto-detected format: %s\n", format)
-
-		// Import from buffer
-		dedupConfig := cfg.GetDedupConfig()
-		count, err := export.Import(db, &buf, format, dedupConfig)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error importing: %v\n", err)
-			os.Exit(1)
-		}
-
-		fmt.Fprintf(os.Stderr, "Imported %d commands\n", count)
 		return
 	}
 
 	// Parse explicit format
-	format, err = export.ParseFormat(formatStr)
+	format, err := export.ParseFormat(formatStr)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
 
 	// Import
-	dedupConfig := cfg.GetDedupConfig()
 	count, err := export.Import(db, reader, format, dedupConfig)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error importing: %v\n", err)
@@ -714,28 +739,4 @@ ENVIRONMENT:
 
 For more information, visit: https://github.com/spideyz0r/fh
 `, version)
-}
-
-// getEnvOrDefault returns environment variable value or default
-func getEnvOrDefault(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return defaultValue
-}
-
-// parseInt safely parses an integer
-func parseInt(s string, defaultValue int) int {
-	if i, err := strconv.Atoi(s); err == nil {
-		return i
-	}
-	return defaultValue
-}
-
-// parseInt64 safely parses an int64
-func parseInt64(s string, defaultValue int64) int64 {
-	if i, err := strconv.ParseInt(s, 10, 64); err == nil {
-		return i
-	}
-	return defaultValue
 }
