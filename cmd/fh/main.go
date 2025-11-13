@@ -190,9 +190,12 @@ func handleSearch(query string) {
 		}
 	}()
 
-	// Search history with configured limit
-	limit := cfg.Search.Limit
-	entries, err := search.All(db, limit)
+	// Search history with configured limit and deduplication
+	filters := storage.QueryFilters{
+		Limit:    cfg.Search.Limit,
+		Distinct: cfg.Search.Deduplicate,
+	}
+	entries, err := search.WithFilters(db, filters)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error searching history: %v\n", err)
 		os.Exit(1)

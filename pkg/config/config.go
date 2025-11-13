@@ -21,11 +21,11 @@ var (
 
 // Config holds the application configuration.
 type Config struct {
-	Database    DatabaseConfig    `yaml:"database"`
-	Deduplicate DeduplicateConfig `yaml:"deduplicate"`
-	Ignore      IgnoreConfig      `yaml:"ignore"`
-	Search      SearchConfig      `yaml:"search"`
-	AI          AIConfig          `yaml:"ai"`
+	Database DatabaseConfig `yaml:"database"`
+	Storage  StorageConfig  `yaml:"storage"`
+	Ignore   IgnoreConfig   `yaml:"ignore"`
+	Search   SearchConfig   `yaml:"search"`
+	AI       AIConfig       `yaml:"ai"`
 }
 
 // DatabaseConfig holds database-related configuration.
@@ -33,7 +33,12 @@ type DatabaseConfig struct {
 	Path string `yaml:"path"` // Path to SQLite database file
 }
 
-// DeduplicateConfig holds deduplication settings.
+// StorageConfig holds storage-related configuration.
+type StorageConfig struct {
+	Deduplicate DeduplicateConfig `yaml:"deduplicate"`
+}
+
+// DeduplicateConfig holds deduplication settings for storage.
 type DeduplicateConfig struct {
 	Enabled  bool   `yaml:"enabled"`  // Enable deduplication
 	Strategy string `yaml:"strategy"` // keep_first, keep_last, keep_all
@@ -46,7 +51,8 @@ type IgnoreConfig struct {
 
 // SearchConfig holds search-related configuration.
 type SearchConfig struct {
-	Limit int `yaml:"limit"` // Max number of entries to load for FZF (0 = unlimited)
+	Limit       int  `yaml:"limit"`       // Max number of entries to load for FZF (0 = unlimited)
+	Deduplicate bool `yaml:"deduplicate"` // Display only unique commands in FZF
 }
 
 // AIConfig holds AI-powered search configuration.
@@ -72,9 +78,11 @@ func Default() *Config {
 		Database: DatabaseConfig{
 			Path: dbPath,
 		},
-		Deduplicate: DeduplicateConfig{
-			Enabled:  true,
-			Strategy: "keep_all", // Default to keep_all for AI context
+		Storage: StorageConfig{
+			Deduplicate: DeduplicateConfig{
+				Enabled:  true,
+				Strategy: "keep_all", // Default to keep_all for AI context
+			},
 		},
 		Ignore: IgnoreConfig{
 			Patterns: []string{
@@ -89,7 +97,8 @@ func Default() *Config {
 			},
 		},
 		Search: SearchConfig{
-			Limit: 0, // Default: unlimited - fuzzy finder handles large datasets efficiently
+			Limit:       0,    // Default: unlimited - fuzzy finder handles large datasets efficiently
+			Deduplicate: true, // Default: show only unique commands in FZF
 		},
 		AI: AIConfig{
 			Enabled:        true,
@@ -218,8 +227,8 @@ func (c *Config) Validate() error {
 		"keep_all":   true,
 	}
 
-	if c.Deduplicate.Enabled && !validStrategies[c.Deduplicate.Strategy] {
-		return fmt.Errorf("invalid dedup strategy: %s (must be keep_first, keep_last, or keep_all)", c.Deduplicate.Strategy)
+	if c.Storage.Deduplicate.Enabled && !validStrategies[c.Storage.Deduplicate.Strategy] {
+		return fmt.Errorf("invalid dedup strategy: %s (must be keep_first, keep_last, or keep_all)", c.Storage.Deduplicate.Strategy)
 	}
 
 	return nil
@@ -229,7 +238,7 @@ func (c *Config) Validate() error {
 func (c *Config) GetDedupConfig() storage.DedupConfig {
 	var strategy storage.DedupStrategy
 
-	switch c.Deduplicate.Strategy {
+	switch c.Storage.Deduplicate.Strategy {
 	case "keep_first":
 		strategy = storage.KeepFirst
 	case "keep_last":
@@ -241,7 +250,7 @@ func (c *Config) GetDedupConfig() storage.DedupConfig {
 	}
 
 	return storage.DedupConfig{
-		Enabled:  c.Deduplicate.Enabled,
+		Enabled:  c.Storage.Deduplicate.Enabled,
 		Strategy: strategy,
 	}
 }

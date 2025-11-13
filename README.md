@@ -108,9 +108,10 @@ Edit `~/.fh/config.yaml`:
 database:
   path: ~/.fh/history.db
 
-deduplicate:
-  enabled: true
-  strategy: keep_all  # keep_first, keep_last, or keep_all
+storage:
+  deduplicate:
+    enabled: true
+    strategy: keep_all  # keep_first, keep_last, or keep_all
 
 ignore:
   patterns:
@@ -123,7 +124,8 @@ ignore:
     - ^clear$
 
 search:
-  limit: 0  # 0 = unlimited (recommended)
+  limit: 0          # 0 = unlimited (recommended)
+  deduplicate: true # Show only unique commands in search results
 
 ai:
   enabled: true
@@ -133,6 +135,33 @@ ai:
   max_sql_retries: 10
   max_chunk_tokens: 10000
 ```
+
+### Deduplication Settings
+
+fh supports **two levels of deduplication** to balance clean search results with rich AI context:
+
+**Storage Deduplication** (`storage.deduplicate`)
+- Controls how duplicate commands are stored in the database
+- **`keep_all`** (recommended): Stores every command execution with full metadata - best for AI queries that need temporal context
+- **`keep_last`**: Updates timestamp of existing commands - saves database space
+- **`keep_first`**: Keeps only first occurrence - minimal storage footprint
+
+**Display Deduplication** (`search.deduplicate`)
+- Controls what you see in fuzzy search (Ctrl-R)
+- **`true`** (default): Shows only unique commands (most recent occurrence)
+- **`false`**: Shows all command executions
+
+**Recommended Setup:**
+```yaml
+storage:
+  deduplicate:
+    enabled: true
+    strategy: keep_all    # Full history for AI context
+search:
+  deduplicate: true       # Clean search results
+```
+
+This gives you a clean search interface (e.g., 14K unique commands) while preserving full history (45K entries) for AI-powered queries like "show me all docker commands from last week".
 
 For AI features, add your OpenAI API key to your shell RC file (`~/.bashrc` or `~/.zshrc`):
 ```bash
