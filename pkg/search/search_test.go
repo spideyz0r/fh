@@ -396,19 +396,40 @@ func TestFormatEntry(t *testing.T) {
 
 func TestExtractCommand(t *testing.T) {
 	t.Run("extract from formatted entry", func(t *testing.T) {
-		formatted := "git status │ 2009-02-13 23:31:30 │ /home/user"
+		entry := &storage.HistoryEntry{
+			Timestamp:  1234567890, // 2009-02-13 23:31:30
+			Command:    "git status",
+			Cwd:        "/home/user",
+			ExitCode:   0,
+			DurationMs: 50,
+		}
+		formatted := FormatEntry(entry)
 		command := ExtractCommand(formatted)
 		assert.Equal(t, "git status", command)
 	})
 
 	t.Run("extract from entry with exit code", func(t *testing.T) {
-		formatted := "git push │ 2009-02-13 23:31:30 │ /home/user │ [exit:1]"
+		entry := &storage.HistoryEntry{
+			Timestamp:  1234567890, // 2009-02-13 23:31:30
+			Command:    "git push",
+			Cwd:        "/home/user",
+			ExitCode:   1,
+			DurationMs: 50,
+		}
+		formatted := FormatEntry(entry)
 		command := ExtractCommand(formatted)
 		assert.Equal(t, "git push", command)
 	})
 
 	t.Run("extract from simple formatted entry", func(t *testing.T) {
-		formatted := "ls -la │ 2009-02-13 23:31:30 │ /home"
+		entry := &storage.HistoryEntry{
+			Timestamp:  1234567890, // 2009-02-13 23:31:30
+			Command:    "ls -la",
+			Cwd:        "/home",
+			ExitCode:   0,
+			DurationMs: 10,
+		}
+		formatted := FormatEntry(entry)
 		command := ExtractCommand(formatted)
 		assert.Equal(t, "ls -la", command)
 	})
@@ -421,7 +442,14 @@ func TestExtractCommand(t *testing.T) {
 	t.Run("extract command with separator in it", func(t *testing.T) {
 		// Note: ExtractCommand takes the first part after splitting by │
 		// Command is always first in the new format
-		formatted := "echo test │ 2009-02-13 23:31:30 │ /home"
+		entry := &storage.HistoryEntry{
+			Timestamp:  1234567890, // 2009-02-13 23:31:30
+			Command:    "echo test",
+			Cwd:        "/home",
+			ExitCode:   0,
+			DurationMs: 10,
+		}
+		formatted := FormatEntry(entry)
 		command := ExtractCommand(formatted)
 		assert.Equal(t, "echo test", command)
 	})
