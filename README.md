@@ -161,7 +161,7 @@ search:
   deduplicate: true       # Clean search results
 ```
 
-This gives you a clean search interface (e.g., 14K unique commands) while preserving full history (45K entries) for AI-powered queries like "show me all docker commands from last week".
+This gives you a clean search interface (e.g., 14K unique commands) while preserving full history for AI-powered queries like "show me all docker commands from last week".
 
 For AI features, add your OpenAI API key to your shell RC file (`~/.bashrc` or `~/.zshrc`):
 ```bash
