@@ -1,6 +1,7 @@
 package search
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -430,5 +431,119 @@ func TestExtractCommand(t *testing.T) {
 		formatted := "just a command"
 		command := ExtractCommand(formatted)
 		assert.Equal(t, "just a command", command)
+	})
+
+	t.Run("extract from padded command", func(t *testing.T) {
+		formatted := "ls                                                          │ 2009-02-13 18:31:30 │ /home"
+		command := ExtractCommand(formatted)
+		assert.Equal(t, "ls", command, "Should trim padding spaces")
+	})
+
+	t.Run("extract from truncated command with ellipsis", func(t *testing.T) {
+		formatted := "kubectl argo rollouts get rollouts very-long-deploymen... │ 2009-02-13 18:31:30"
+		command := ExtractCommand(formatted)
+		assert.Equal(t, "kubectl argo rollouts get rollouts very-long-deploymen...", command)
+	})
+}
+
+func TestFormatEntry_Padding(t *testing.T) {
+	t.Run("short command gets padded to 60 chars", func(t *testing.T) {
+		entry := &storage.HistoryEntry{
+			Timestamp: 1234567890,
+			Command:   "ls",
+			Cwd:       "/home",
+			ExitCode:  0,
+		}
+
+		formatted := FormatEntry(entry)
+		parts := strings.Split(formatted, " │ ")
+		assert.Len(t, parts[0], 60, "Command should be padded to 60 characters")
+	})
+
+	t.Run("long command gets truncated with ellipsis", func(t *testing.T) {
+		longCommand := "kubectl argo rollouts get rollouts very-long-deployment-name-exceeds-sixty"
+		entry := &storage.HistoryEntry{
+			Timestamp: 1234567890,
+			Command:   longCommand,
+			Cwd:       "/home",
+			ExitCode:  0,
+		}
+
+		formatted := FormatEntry(entry)
+		parts := strings.Split(formatted, " │ ")
+		assert.Len(t, parts[0], 60, "Long command should be truncated to 60 characters")
+		assert.Contains(t, parts[0], "...", "Truncated command should have ellipsis")
+	})
+}
+
+func TestFormatEntry_CwdHandling(t *testing.T) {
+	t.Run("very long cwd gets truncated", func(t *testing.T) {
+		longCwd := "/Users/username/very/long/path/to/deeply/nested/directory/that/exceeds/fifty/chars"
+		entry := &storage.HistoryEntry{
+			Timestamp: 1234567890,
+			Command:   "ls",
+			Cwd:       longCwd,
+			ExitCode:  0,
+		}
+
+		formatted := FormatEntry(entry)
+		assert.Contains(t, formatted, "...", "Long cwd should be truncated with ellipsis")
+		parts := strings.Split(formatted, " │ ")
+		assert.GreaterOrEqual(t, len(parts), 3, "Should have command, timestamp, and cwd")
+	})
+
+	t.Run("empty cwd not displayed", func(t *testing.T) {
+		entry := &storage.HistoryEntry{
+			Timestamp: 1234567890,
+			Command:   "ls",
+			Cwd:       "",
+			ExitCode:  0,
+		}
+
+		formatted := FormatEntry(entry)
+		parts := strings.Split(formatted, " │ ")
+		assert.Equal(t, 2, len(parts), "Empty cwd should not add extra separator")
+	})
+}
+
+func TestFormatEntry_BadgesCombinations(t *testing.T) {
+	t.Run("exit code and git branch together", func(t *testing.T) {
+		entry := &storage.HistoryEntry{
+			Timestamp: 1234567890,
+			Command:   "git push",
+			Cwd:       "/home/project",
+			ExitCode:  1,
+			GitBranch: "feature-branch",
+		}
+
+		formatted := FormatEntry(entry)
+		assert.Contains(t, formatted, "[exit:1 feature-branch]")
+	})
+
+	t.Run("only git branch when exit is 0", func(t *testing.T) {
+		entry := &storage.HistoryEntry{
+			Timestamp: 1234567890,
+			Command:   "git status",
+			Cwd:       "/home/project",
+			ExitCode:  0,
+			GitBranch: "main",
+		}
+
+		formatted := FormatEntry(entry)
+		assert.Contains(t, formatted, "[main]")
+		assert.NotContains(t, formatted, "exit:0")
+	})
+
+	t.Run("no badges when exit 0 and no branch", func(t *testing.T) {
+		entry := &storage.HistoryEntry{
+			Timestamp: 1234567890,
+			Command:   "ls",
+			Cwd:       "/home",
+			ExitCode:  0,
+			GitBranch: "",
+		}
+
+		formatted := FormatEntry(entry)
+		assert.NotContains(t, formatted, "[")
 	})
 }
