@@ -287,8 +287,8 @@ func TestFormatEntry(t *testing.T) {
 
 		formatted := FormatEntry(entry)
 		assert.Contains(t, formatted, "git status")
+		assert.Contains(t, formatted, "2009-02-13")
 		assert.Contains(t, formatted, "/home/user/project")
-		assert.Contains(t, formatted, "125ms")
 		assert.Contains(t, formatted, "│")
 	})
 
@@ -302,7 +302,7 @@ func TestFormatEntry(t *testing.T) {
 		}
 
 		formatted := FormatEntry(entry)
-		assert.Contains(t, formatted, "[exit:1]")
+		assert.Contains(t, formatted, "exit:1")
 	})
 
 	t.Run("format entry with long cwd", func(t *testing.T) {
@@ -316,9 +316,10 @@ func TestFormatEntry(t *testing.T) {
 		}
 
 		formatted := FormatEntry(entry)
-		// Should be truncated with "..."
+		// Long cwd should be truncated with "..."
+		assert.Contains(t, formatted, "ls")
 		assert.Contains(t, formatted, "...")
-		assert.Less(t, len(formatted), len(longCwd)+100)
+		assert.Contains(t, formatted, "2009-02-13")
 	})
 
 	t.Run("format entry with duration over 1 second", func(t *testing.T) {
@@ -331,7 +332,9 @@ func TestFormatEntry(t *testing.T) {
 		}
 
 		formatted := FormatEntry(entry)
-		assert.Contains(t, formatted, "[2.5s]")
+		// Duration no longer displayed
+		assert.Contains(t, formatted, "npm test")
+		assert.Contains(t, formatted, "2009-02-13")
 	})
 
 	t.Run("format entry with zero duration", func(t *testing.T) {
@@ -371,7 +374,9 @@ func TestFormatEntry(t *testing.T) {
 		}
 
 		formatted := FormatEntry(entry)
-		assert.Contains(t, formatted, "[50ms]")
+		// Duration no longer displayed
+		assert.Contains(t, formatted, "ls")
+		assert.Contains(t, formatted, "2009-02-13")
 	})
 
 	t.Run("timestamp format", func(t *testing.T) {
@@ -391,19 +396,19 @@ func TestFormatEntry(t *testing.T) {
 
 func TestExtractCommand(t *testing.T) {
 	t.Run("extract from formatted entry", func(t *testing.T) {
-		formatted := "2009-02-13 23:31:30 │ /home/user │ [125ms] │ git status"
+		formatted := "git status │ 2009-02-13 23:31:30 │ /home/user"
 		command := ExtractCommand(formatted)
 		assert.Equal(t, "git status", command)
 	})
 
 	t.Run("extract from entry with exit code", func(t *testing.T) {
-		formatted := "2009-02-13 23:31:30 │ /home/user │ [125ms] │ [exit:1] │ git push"
+		formatted := "git push │ 2009-02-13 23:31:30 │ /home/user │ [exit:1]"
 		command := ExtractCommand(formatted)
 		assert.Equal(t, "git push", command)
 	})
 
 	t.Run("extract from simple formatted entry", func(t *testing.T) {
-		formatted := "2009-02-13 23:31:30 │ ls -la"
+		formatted := "ls -la │ 2009-02-13 23:31:30 │ /home"
 		command := ExtractCommand(formatted)
 		assert.Equal(t, "ls -la", command)
 	})
@@ -414,9 +419,9 @@ func TestExtractCommand(t *testing.T) {
 	})
 
 	t.Run("extract command with separator in it", func(t *testing.T) {
-		// Note: ExtractCommand takes the last part after splitting by │
-		// So if command contains │, only the part after last │ is returned
-		formatted := "2009-02-13 23:31:30 │ /home │ echo test"
+		// Note: ExtractCommand takes the first part after splitting by │
+		// Command is always first in the new format
+		formatted := "echo test │ 2009-02-13 23:31:30 │ /home"
 		command := ExtractCommand(formatted)
 		assert.Equal(t, "echo test", command)
 	})

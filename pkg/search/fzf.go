@@ -76,43 +76,52 @@ func filterEntries(entries []*storage.HistoryEntry, query string) []*storage.His
 }
 
 // FormatEntry formats a history entry for FZF display.
-// Format: timestamp | cwd | command.
+// Format: command | timestamp | cwd | metadata
+// Command is first to prioritize fuzzy matching on it, which combined with
+// the list being sorted by recency (most recent first) naturally biases
+// results toward recent commands when fuzzy scores are similar.
+// Uses fixed-width columns for clean alignment.
 func FormatEntry(entry *storage.HistoryEntry) string {
-	// Format timestamp
-	ts := time.Unix(entry.Timestamp, 0).Format("2006-01-02 15:04:05")
+	const (
+		commandWidth = 60 // Standard width for command column
+		cwdWidth     = 50 // Max width for cwd before truncation
+	)
 
-	// Truncate cwd if too long
-	cwd := entry.Cwd
-	if len(cwd) > 40 {
-		cwd = "..." + cwd[len(cwd)-37:]
+	// Format command - pad or truncate to fixed width
+	cmd := entry.Command
+	if len(cmd) > commandWidth {
+		cmd = cmd[:commandWidth-3] + "..."
 	}
+	cmd = fmt.Sprintf("%-*s", commandWidth, cmd) // Left-aligned, padded
 
-	// Format duration
-	duration := ""
-	if entry.DurationMs > 0 {
-		if entry.DurationMs < 1000 {
-			duration = fmt.Sprintf("%dms", entry.DurationMs)
-		} else {
-			duration = fmt.Sprintf("%.1fs", float64(entry.DurationMs)/1000.0)
+	// Format timestamp - always show full date and time (fixed 19 chars)
+	ts := time.Unix(entry.Timestamp, 0)
+	timeStr := ts.Format("2006-01-02 15:04:05")
+
+	// Build the formatted line
+	parts := []string{cmd, timeStr}
+
+	// Add cwd if present (truncate if too long)
+	if entry.Cwd != "" {
+		cwd := entry.Cwd
+		if len(cwd) > cwdWidth {
+			cwd = "..." + cwd[len(cwd)-(cwdWidth-3):]
 		}
+		parts = append(parts, cwd)
 	}
 
-	// Build parts
-	parts := []string{ts}
-
-	if cwd != "" {
-		parts = append(parts, fmt.Sprintf("%-40s", cwd))
-	}
-
-	if duration != "" {
-		parts = append(parts, fmt.Sprintf("[%s]", duration))
-	}
-
+	// Add metadata badges
+	var badges []string
 	if entry.ExitCode != 0 {
-		parts = append(parts, fmt.Sprintf("[exit:%d]", entry.ExitCode))
+		badges = append(badges, fmt.Sprintf("exit:%d", entry.ExitCode))
+	}
+	if entry.GitBranch != "" {
+		badges = append(badges, entry.GitBranch)
 	}
 
-	parts = append(parts, entry.Command)
+	if len(badges) > 0 {
+		parts = append(parts, "["+strings.Join(badges, " ")+"]")
+	}
 
 	return strings.Join(parts, " │ ")
 }
@@ -126,6 +135,6 @@ func ExtractCommand(formattedEntry string) string {
 		return ""
 	}
 
-	// Command is the last part
-	return parts[len(parts)-1]
+	// Command is the first part, but it's padded - trim trailing spaces
+	return strings.TrimRight(parts[0], " ")
 }
