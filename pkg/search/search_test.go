@@ -396,19 +396,19 @@ func TestFormatEntry(t *testing.T) {
 
 func TestExtractCommand(t *testing.T) {
 	t.Run("extract from formatted entry", func(t *testing.T) {
-		formatted := "git status │ 2009-02-13 23:31:30 │ /home/user"
+		formatted := "git status                                                   │ 2009-02-13 23:31:30 │ /home/user"
 		command := ExtractCommand(formatted)
 		assert.Equal(t, "git status", command)
 	})
 
 	t.Run("extract from entry with exit code", func(t *testing.T) {
-		formatted := "git push │ 2009-02-13 23:31:30 │ /home/user │ [exit:1]"
+		formatted := "git push                                                     │ 2009-02-13 23:31:30 │ /home/user │ [exit:1]"
 		command := ExtractCommand(formatted)
 		assert.Equal(t, "git push", command)
 	})
 
 	t.Run("extract from simple formatted entry", func(t *testing.T) {
-		formatted := "ls -la │ 2009-02-13 23:31:30 │ /home"
+		formatted := "ls -la                                                       │ 2009-02-13 23:31:30 │ /home"
 		command := ExtractCommand(formatted)
 		assert.Equal(t, "ls -la", command)
 	})
