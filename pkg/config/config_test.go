@@ -15,10 +15,11 @@ func TestDefault(t *testing.T) {
 
 	assert.NotNil(t, cfg)
 	assert.NotEmpty(t, cfg.Database.Path)
-	assert.True(t, cfg.Deduplicate.Enabled)
-	assert.Equal(t, "keep_all", cfg.Deduplicate.Strategy)
+	assert.True(t, cfg.Storage.Deduplicate.Enabled)
+	assert.Equal(t, "keep_all", cfg.Storage.Deduplicate.Strategy)
 	assert.NotEmpty(t, cfg.Ignore.Patterns)
 	assert.Contains(t, cfg.Ignore.Patterns, "^ls$")
+	assert.True(t, cfg.Search.Deduplicate) // Default: show unique commands
 }
 
 func TestValidate(t *testing.T) {
@@ -43,10 +44,12 @@ func TestValidate(t *testing.T) {
 			name: "invalid dedup strategy",
 			config: &Config{
 				Database: DatabaseConfig{Path: "/tmp/test.db"},
+				Storage: StorageConfig{
 				Deduplicate: DeduplicateConfig{
 					Enabled:  true,
 					Strategy: "invalid_strategy",
 				},
+			},
 			},
 			wantErr: true,
 		},
@@ -54,10 +57,12 @@ func TestValidate(t *testing.T) {
 			name: "valid keep_first strategy",
 			config: &Config{
 				Database: DatabaseConfig{Path: "/tmp/test.db"},
+				Storage: StorageConfig{
 				Deduplicate: DeduplicateConfig{
 					Enabled:  true,
 					Strategy: "keep_first",
 				},
+			},
 			},
 			wantErr: false,
 		},
@@ -65,10 +70,12 @@ func TestValidate(t *testing.T) {
 			name: "valid keep_last strategy",
 			config: &Config{
 				Database: DatabaseConfig{Path: "/tmp/test.db"},
+				Storage: StorageConfig{
 				Deduplicate: DeduplicateConfig{
 					Enabled:  true,
 					Strategy: "keep_last",
 				},
+			},
 			},
 			wantErr: false,
 		},
@@ -76,10 +83,12 @@ func TestValidate(t *testing.T) {
 			name: "dedup disabled with invalid strategy",
 			config: &Config{
 				Database: DatabaseConfig{Path: "/tmp/test.db"},
+				Storage: StorageConfig{
 				Deduplicate: DeduplicateConfig{
 					Enabled:  false,
 					Strategy: "invalid",
 				},
+			},
 			},
 			wantErr: false, // Should not validate strategy when disabled
 		},
@@ -105,15 +114,16 @@ func TestLoad(t *testing.T) {
 	// Test loading non-existent file (should return defaults)
 	cfg, err := Load(configPath)
 	require.NoError(t, err)
-	assert.Equal(t, "keep_all", cfg.Deduplicate.Strategy)
+	assert.Equal(t, "keep_all", cfg.Storage.Deduplicate.Strategy)
 
 	// Create a config file
 	configYAML := `
 database:
   path: /tmp/custom.db
-deduplicate:
-  enabled: true
-  strategy: keep_first
+storage:
+  deduplicate:
+    enabled: true
+    strategy: keep_first
 ignore:
   patterns:
     - "^echo "
@@ -126,8 +136,8 @@ ignore:
 	cfg, err = Load(configPath)
 	require.NoError(t, err)
 	assert.Equal(t, "/tmp/custom.db", cfg.Database.Path)
-	assert.True(t, cfg.Deduplicate.Enabled)
-	assert.Equal(t, "keep_first", cfg.Deduplicate.Strategy)
+	assert.True(t, cfg.Storage.Deduplicate.Enabled)
+	assert.Equal(t, "keep_first", cfg.Storage.Deduplicate.Strategy)
 	assert.Len(t, cfg.Ignore.Patterns, 2)
 	assert.Contains(t, cfg.Ignore.Patterns, "^echo ")
 }
@@ -153,9 +163,10 @@ func TestLoad_InvalidConfig(t *testing.T) {
 	configYAML := `
 database:
   path: /tmp/test.db
-deduplicate:
-  enabled: true
-  strategy: invalid_strategy
+storage:
+  deduplicate:
+    enabled: true
+    strategy: invalid_strategy
 `
 	err := os.WriteFile(configPath, []byte(configYAML), 0644)
 	require.NoError(t, err)
@@ -171,7 +182,7 @@ func TestSave(t *testing.T) {
 
 	cfg := Default()
 	cfg.Database.Path = "/custom/path.db"
-	cfg.Deduplicate.Strategy = "keep_first"
+	cfg.Storage.Deduplicate.Strategy = "keep_first"
 
 	err := cfg.Save(configPath)
 	require.NoError(t, err)
@@ -184,7 +195,7 @@ func TestSave(t *testing.T) {
 	loaded, err := Load(configPath)
 	require.NoError(t, err)
 	assert.Equal(t, "/custom/path.db", loaded.Database.Path)
-	assert.Equal(t, "keep_first", loaded.Deduplicate.Strategy)
+	assert.Equal(t, "keep_first", loaded.Storage.Deduplicate.Strategy)
 }
 
 func TestGetDedupConfig(t *testing.T) {
@@ -236,10 +247,12 @@ func TestGetDedupConfig(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := &Config{
 				Database: DatabaseConfig{Path: "/tmp/test.db"},
+				Storage: StorageConfig{
 				Deduplicate: DeduplicateConfig{
 					Enabled:  tt.enabled,
 					Strategy: tt.strategy,
 				},
+			},
 			}
 
 			dedupCfg := cfg.GetDedupConfig()
@@ -264,9 +277,19 @@ func TestLoadDefault(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, cfg)
 
-	// Should have default values
-	assert.True(t, cfg.Deduplicate.Enabled)
+	// Should have a database path (either from config file or defaults)
 	assert.NotEmpty(t, cfg.Database.Path)
+
+	// Should have valid strategy if dedup is enabled
+	if cfg.Storage.Deduplicate.Enabled {
+		validStrategies := map[string]bool{
+			"keep_first": true,
+			"keep_last":  true,
+			"keep_all":   true,
+		}
+		assert.True(t, validStrategies[cfg.Storage.Deduplicate.Strategy],
+			"Invalid dedup strategy: %s", cfg.Storage.Deduplicate.Strategy)
+	}
 }
 
 func TestClearCache(t *testing.T) {
@@ -332,9 +355,11 @@ func TestValidate_EdgeCases(t *testing.T) {
 	t.Run("valid config with empty ignore patterns", func(t *testing.T) {
 		cfg := &Config{
 			Database: DatabaseConfig{Path: "/tmp/test.db"},
-			Deduplicate: DeduplicateConfig{
-				Enabled:  false,
-				Strategy: "keep_all",
+			Storage: StorageConfig{
+				Deduplicate: DeduplicateConfig{
+					Enabled:  false,
+					Strategy: "keep_all",
+				},
 			},
 			Ignore: IgnoreConfig{Patterns: []string{}},
 		}
@@ -359,10 +384,12 @@ func TestGetDedupConfig_AllStrategies(t *testing.T) {
 		t.Run(s.input, func(t *testing.T) {
 			cfg := &Config{
 				Database: DatabaseConfig{Path: "/tmp/test.db"},
+				Storage: StorageConfig{
 				Deduplicate: DeduplicateConfig{
 					Enabled:  true,
 					Strategy: s.input,
 				},
+			},
 			}
 			dedupCfg := cfg.GetDedupConfig()
 			assert.Equal(t, s.expected, dedupCfg.Strategy)

@@ -589,3 +589,298 @@ func TestCount_EdgeCases(t *testing.T) {
 		assert.Equal(t, int64(3), count)
 	})
 }
+
+func TestQuery_Distinct(t *testing.T) {
+	t.Run("distinct returns unique commands only", func(t *testing.T) {
+		db := setupTestDB(t)
+		defer db.Close()
+
+		// Insert duplicate commands with different timestamps
+		entries := []*HistoryEntry{
+			createTestEntry(t, "ls -la", 1000),
+			createTestEntry(t, "git status", 2000),
+			createTestEntry(t, "ls -la", 3000),      // Duplicate of ls -la
+			createTestEntry(t, "git status", 4000),  // Duplicate of git status
+			createTestEntry(t, "pwd", 5000),         // Unique
+			createTestEntry(t, "ls -la", 6000),      // Another duplicate of ls -la
+		}
+
+		for i, entry := range entries {
+			entry.Hash = entry.Command + string(rune(i)) // Make hashes unique
+			require.NoError(t, db.Insert(entry))
+		}
+
+		// Query with Distinct=true
+		results, err := db.Query(QueryFilters{Distinct: true})
+		require.NoError(t, err)
+
+		// Should return only 3 unique commands
+		assert.Len(t, results, 3)
+
+		// Commands should be unique
+		commands := make(map[string]bool)
+		for _, r := range results {
+			assert.False(t, commands[r.Command], "Command %s appears twice", r.Command)
+			commands[r.Command] = true
+		}
+
+		// Should have all three unique commands
+		assert.True(t, commands["ls -la"])
+		assert.True(t, commands["git status"])
+		assert.True(t, commands["pwd"])
+	})
+
+	t.Run("distinct returns most recent entry for each command", func(t *testing.T) {
+		db := setupTestDB(t)
+		defer db.Close()
+
+		// Insert same command at different times with different metadata
+		entries := []*HistoryEntry{
+			createTestEntry(t, "git status", 1000),
+			createTestEntry(t, "git status", 2000),
+			createTestEntry(t, "git status", 3000),
+		}
+		entries[0].Cwd = "/home/old"
+		entries[1].Cwd = "/home/middle"
+		entries[2].Cwd = "/home/recent"
+
+		for i, entry := range entries {
+			entry.Hash = entry.Command + string(rune(i))
+			require.NoError(t, db.Insert(entry))
+		}
+
+		// Query with Distinct=true
+		results, err := db.Query(QueryFilters{Distinct: true})
+		require.NoError(t, err)
+
+		// Should return only the most recent entry
+		assert.Len(t, results, 1)
+		assert.Equal(t, "git status", results[0].Command)
+		assert.Equal(t, int64(3000), results[0].Timestamp)
+		assert.Equal(t, "/home/recent", results[0].Cwd)
+	})
+
+	t.Run("distinct false returns all entries", func(t *testing.T) {
+		db := setupTestDB(t)
+		defer db.Close()
+
+		// Insert duplicate commands
+		entries := []*HistoryEntry{
+			createTestEntry(t, "ls -la", 1000),
+			createTestEntry(t, "ls -la", 2000),
+			createTestEntry(t, "ls -la", 3000),
+		}
+
+		for i, entry := range entries {
+			entry.Hash = entry.Command + string(rune(i))
+			require.NoError(t, db.Insert(entry))
+		}
+
+		// Query with Distinct=false (default behavior)
+		results, err := db.Query(QueryFilters{Distinct: false})
+		require.NoError(t, err)
+
+		// Should return all entries
+		assert.Len(t, results, 3)
+	})
+
+	t.Run("distinct with same timestamp uses max id as tiebreaker", func(t *testing.T) {
+		db := setupTestDB(t)
+		defer db.Close()
+
+		// Insert same command with same timestamp (rapid-fire commands)
+		timestamp := int64(1000)
+		entries := []*HistoryEntry{
+			createTestEntry(t, "echo test", timestamp),
+			createTestEntry(t, "echo test", timestamp),
+			createTestEntry(t, "echo test", timestamp),
+		}
+		entries[0].Cwd = "/first"
+		entries[1].Cwd = "/second"
+		entries[2].Cwd = "/third"
+
+		for i, entry := range entries {
+			entry.Hash = entry.Command + string(rune(i))
+			require.NoError(t, db.Insert(entry))
+		}
+
+		// Query with Distinct=true
+		results, err := db.Query(QueryFilters{Distinct: true})
+		require.NoError(t, err)
+
+		// Should return only one entry (the one with highest ID)
+		assert.Len(t, results, 1)
+		assert.Equal(t, "echo test", results[0].Command)
+		// Should be the last inserted entry (highest ID)
+		assert.Equal(t, "/third", results[0].Cwd)
+	})
+
+	t.Run("distinct with search filter", func(t *testing.T) {
+		db := setupTestDB(t)
+		defer db.Close()
+
+		entries := []*HistoryEntry{
+			createTestEntry(t, "git status", 1000),
+			createTestEntry(t, "git commit", 2000),
+			createTestEntry(t, "git status", 3000),  // Duplicate
+			createTestEntry(t, "ls -la", 4000),      // Not a git command
+			createTestEntry(t, "git commit", 5000),  // Duplicate
+		}
+
+		for i, entry := range entries {
+			entry.Hash = entry.Command + string(rune(i))
+			require.NoError(t, db.Insert(entry))
+		}
+
+		// Query with Distinct=true and search filter
+		results, err := db.Query(QueryFilters{
+			Distinct: true,
+			Search:   "git",
+		})
+		require.NoError(t, err)
+
+		// Should return only 2 unique git commands
+		assert.Len(t, results, 2)
+
+		commands := make(map[string]bool)
+		for _, r := range results {
+			commands[r.Command] = true
+		}
+		assert.True(t, commands["git status"])
+		assert.True(t, commands["git commit"])
+	})
+
+	t.Run("distinct with time range filter", func(t *testing.T) {
+		db := setupTestDB(t)
+		defer db.Close()
+
+		entries := []*HistoryEntry{
+			createTestEntry(t, "cmd1", 1000),
+			createTestEntry(t, "cmd2", 2000),
+			createTestEntry(t, "cmd1", 3000),  // Duplicate, but in range
+			createTestEntry(t, "cmd2", 4000),  // Duplicate, but in range
+			createTestEntry(t, "cmd1", 5000),  // Duplicate, but out of range
+		}
+
+		for i, entry := range entries {
+			entry.Hash = entry.Command + string(rune(i))
+			require.NoError(t, db.Insert(entry))
+		}
+
+		// Query with Distinct=true and time range
+		results, err := db.Query(QueryFilters{
+			Distinct: true,
+			After:    1500,
+			Before:   4500,
+		})
+		require.NoError(t, err)
+
+		// Should return 2 unique commands within the time range
+		assert.Len(t, results, 2)
+
+		// Should be the most recent entries within the range
+		commands := make(map[string]int64)
+		for _, r := range results {
+			commands[r.Command] = r.Timestamp
+		}
+		assert.Equal(t, int64(3000), commands["cmd1"])
+		assert.Equal(t, int64(4000), commands["cmd2"])
+	})
+
+	t.Run("distinct with cwd filter", func(t *testing.T) {
+		db := setupTestDB(t)
+		defer db.Close()
+
+		entries := []*HistoryEntry{
+			createTestEntry(t, "ls", 1000),
+			createTestEntry(t, "pwd", 2000),
+			createTestEntry(t, "ls", 3000),  // Duplicate
+		}
+		entries[0].Cwd = "/home/user"
+		entries[1].Cwd = "/tmp"
+		entries[2].Cwd = "/home/user"
+
+		for i, entry := range entries {
+			entry.Hash = entry.Command + string(rune(i))
+			require.NoError(t, db.Insert(entry))
+		}
+
+		// Query with Distinct=true and cwd filter
+		results, err := db.Query(QueryFilters{
+			Distinct: true,
+			Cwd:      "/home/user",
+		})
+		require.NoError(t, err)
+
+		// Should return only unique commands in /home/user
+		assert.Len(t, results, 1)
+		assert.Equal(t, "ls", results[0].Command)
+		assert.Equal(t, int64(3000), results[0].Timestamp) // Most recent
+	})
+
+	t.Run("distinct with limit", func(t *testing.T) {
+		db := setupTestDB(t)
+		defer db.Close()
+
+		// Insert multiple unique commands
+		entries := []*HistoryEntry{
+			createTestEntry(t, "cmd1", 1000),
+			createTestEntry(t, "cmd2", 2000),
+			createTestEntry(t, "cmd3", 3000),
+			createTestEntry(t, "cmd4", 4000),
+			createTestEntry(t, "cmd5", 5000),
+		}
+
+		for i, entry := range entries {
+			entry.Hash = entry.Command + string(rune(i))
+			require.NoError(t, db.Insert(entry))
+		}
+
+		// Query with Distinct=true and limit
+		results, err := db.Query(QueryFilters{
+			Distinct: true,
+			Limit:    3,
+		})
+		require.NoError(t, err)
+
+		// Should return only 3 results (most recent)
+		assert.Len(t, results, 3)
+		assert.Equal(t, "cmd5", results[0].Command)
+		assert.Equal(t, "cmd4", results[1].Command)
+		assert.Equal(t, "cmd3", results[2].Command)
+	})
+
+	t.Run("distinct with empty database", func(t *testing.T) {
+		db := setupTestDB(t)
+		defer db.Close()
+
+		results, err := db.Query(QueryFilters{Distinct: true})
+		require.NoError(t, err)
+		assert.Len(t, results, 0)
+	})
+
+	t.Run("distinct ordering is by timestamp desc", func(t *testing.T) {
+		db := setupTestDB(t)
+		defer db.Close()
+
+		entries := []*HistoryEntry{
+			createTestEntry(t, "cmd1", 1000),
+			createTestEntry(t, "cmd2", 5000),
+			createTestEntry(t, "cmd3", 3000),
+		}
+
+		for i, entry := range entries {
+			entry.Hash = entry.Command + string(rune(i))
+			require.NoError(t, db.Insert(entry))
+		}
+
+		results, err := db.Query(QueryFilters{Distinct: true})
+		require.NoError(t, err)
+
+		// Should be ordered by timestamp descending
+		assert.Len(t, results, 3)
+		assert.Equal(t, "cmd2", results[0].Command)
+		assert.Equal(t, "cmd3", results[1].Command)
+		assert.Equal(t, "cmd1", results[2].Command)
+	})
+}

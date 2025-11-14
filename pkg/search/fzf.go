@@ -5,11 +5,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/koki-develop/go-fzf"
+	fuzzyfinder "github.com/ktr0731/go-fuzzyfinder"
 	"github.com/spideyz0r/fh/pkg/storage"
 )
 
-// FzfSearch launches an interactive FZF selector with history entries.
+// FzfSearch launches an interactive FZF selector using ktr0731/go-fuzzyfinder.
 func FzfSearch(entries []*storage.HistoryEntry, preFilter string) (*storage.HistoryEntry, error) {
 	if len(entries) == 0 {
 		return nil, fmt.Errorf("no history entries found")
@@ -24,41 +24,43 @@ func FzfSearch(entries []*storage.HistoryEntry, preFilter string) (*storage.Hist
 		}
 	}
 
-	// Create FZF instance with custom keybindings
-	// Note: go-fzf doesn't support PageUp/PageDown natively
-	// TODO: Consider switching to native fzf binary for full feature support
-	f, err := fzf.New(
-		fzf.WithNoLimit(true), // Show all results
-		fzf.WithKeyMap(fzf.KeyMap{
-			Up:     []string{"up", "ctrl-k", "ctrl-p", "pgup"},     // Added pgup
-			Down:   []string{"down", "ctrl-j", "ctrl-n", "pgdown"}, // Added pgdown
-			Toggle: []string{"tab"},
-			Choose: []string{"enter"},
-			Abort:  []string{"esc", "ctrl-c"},
+	// Use ktr0731/go-fuzzyfinder
+	idx, err := fuzzyfinder.Find(
+		filteredEntries,
+		func(i int) string {
+			// Return the display string for fuzzy matching
+			return FormatEntry(filteredEntries[i])
+		},
+		fuzzyfinder.WithPreviewWindow(func(i, w, h int) string {
+			if i == -1 {
+				return ""
+			}
+			entry := filteredEntries[i]
+
+			// Build preview
+			preview := fmt.Sprintf("Command: %s\n\n", entry.Command)
+			preview += fmt.Sprintf("Time:     %s\n", time.Unix(entry.Timestamp, 0).Format("2006-01-02 15:04:05"))
+			preview += fmt.Sprintf("Cwd:      %s\n", entry.Cwd)
+			preview += fmt.Sprintf("Exit:     %d\n", entry.ExitCode)
+			if entry.DurationMs > 0 {
+				preview += fmt.Sprintf("Duration: %dms\n", entry.DurationMs)
+			}
+			if entry.GitBranch != "" {
+				preview += fmt.Sprintf("Branch:   %s\n", entry.GitBranch)
+			}
+			preview += fmt.Sprintf("Host:     %s\n", entry.Hostname)
+			preview += fmt.Sprintf("User:     %s\n", entry.User)
+			preview += fmt.Sprintf("Shell:    %s\n", entry.Shell)
+
+			return preview
 		}),
 	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create fzf: %w", err)
-	}
 
-	// Format entries for display
-	items := make([]string, len(filteredEntries))
-	for i, entry := range filteredEntries {
-		items[i] = FormatEntry(entry)
-	}
-
-	// Find with FZF
-	indexes, err := f.Find(items, func(i int) string { return items[i] })
 	if err != nil {
 		return nil, fmt.Errorf("fzf search failed: %w", err)
 	}
 
-	// Return selected entry (first one if multiple selected)
-	if len(indexes) == 0 {
-		return nil, fmt.Errorf("no selection made")
-	}
-
-	return filteredEntries[indexes[0]], nil
+	return filteredEntries[idx], nil
 }
 
 // filterEntries filters entries by command text.

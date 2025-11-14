@@ -24,6 +24,7 @@ type QueryFilters struct {
 	ExitCode *int   // Filter by exit code
 	Limit    int    // Max results
 	Offset   int    // Pagination offset
+	Distinct bool   // Only return unique commands (most recent entry for each)
 }
 
 // Insert adds a new history entry to the database
@@ -59,39 +60,83 @@ func (db *DB) Insert(entry *HistoryEntry) error {
 
 // Query retrieves history entries matching the given filters
 func (db *DB) Query(filters QueryFilters) ([]*HistoryEntry, error) {
-	query := "SELECT id, timestamp, command, cwd, exit_code, hostname, user, shell, duration_ms, git_branch, hash, session_id, created_at FROM history WHERE 1=1"
+	var query string
 	args := []interface{}{}
 
-	// Build WHERE clause
-	if filters.Search != "" {
-		query += " AND command LIKE ?"
-		args = append(args, "%"+filters.Search+"%")
+	if filters.Distinct {
+		// Use subquery to get only unique commands (most recent entry for each)
+		query = `SELECT h.id, h.timestamp, h.command, h.cwd, h.exit_code, h.hostname, h.user, h.shell, h.duration_ms, h.git_branch, h.hash, h.session_id, h.created_at
+		FROM history h
+		INNER JOIN (
+			SELECT command, MAX(timestamp) as max_ts, MAX(id) as max_id
+			FROM history
+			WHERE 1=1`
+
+		// Apply filters to subquery
+		if filters.Search != "" {
+			query += " AND command LIKE ?"
+			args = append(args, "%"+filters.Search+"%")
+		}
+
+		if filters.Cwd != "" {
+			query += " AND cwd = ?"
+			args = append(args, filters.Cwd)
+		}
+
+		if filters.After > 0 {
+			query += " AND timestamp >= ?"
+			args = append(args, filters.After)
+		}
+
+		if filters.Before > 0 {
+			query += " AND timestamp <= ?"
+			args = append(args, filters.Before)
+		}
+
+		if filters.ExitCode != nil {
+			query += " AND exit_code = ?"
+			args = append(args, *filters.ExitCode)
+		}
+
+		query += `
+			GROUP BY command
+		) latest ON h.command = latest.command AND h.timestamp = latest.max_ts AND h.id = latest.max_id
+		ORDER BY h.timestamp DESC`
+	} else {
+		// Standard query - return all entries
+		query = "SELECT id, timestamp, command, cwd, exit_code, hostname, user, shell, duration_ms, git_branch, hash, session_id, created_at FROM history WHERE 1=1"
+
+		// Build WHERE clause
+		if filters.Search != "" {
+			query += " AND command LIKE ?"
+			args = append(args, "%"+filters.Search+"%")
+		}
+
+		if filters.Cwd != "" {
+			query += " AND cwd = ?"
+			args = append(args, filters.Cwd)
+		}
+
+		if filters.After > 0 {
+			query += " AND timestamp >= ?"
+			args = append(args, filters.After)
+		}
+
+		if filters.Before > 0 {
+			query += " AND timestamp <= ?"
+			args = append(args, filters.Before)
+		}
+
+		if filters.ExitCode != nil {
+			query += " AND exit_code = ?"
+			args = append(args, *filters.ExitCode)
+		}
+
+		// Order by timestamp descending (most recent first)
+		query += " ORDER BY timestamp DESC"
 	}
 
-	if filters.Cwd != "" {
-		query += " AND cwd = ?"
-		args = append(args, filters.Cwd)
-	}
-
-	if filters.After > 0 {
-		query += " AND timestamp >= ?"
-		args = append(args, filters.After)
-	}
-
-	if filters.Before > 0 {
-		query += " AND timestamp <= ?"
-		args = append(args, filters.Before)
-	}
-
-	if filters.ExitCode != nil {
-		query += " AND exit_code = ?"
-		args = append(args, *filters.ExitCode)
-	}
-
-	// Order by timestamp descending (most recent first)
-	query += " ORDER BY timestamp DESC"
-
-	// Pagination
+	// Pagination (applies to both queries)
 	if filters.Limit > 0 {
 		query += " LIMIT ?"
 		args = append(args, filters.Limit)
