@@ -1,5 +1,7 @@
 # fh - Fast History
 
+[![Go Report Card](https://goreportcard.com/badge/github.com/spideyz0r/fh)](https://goreportcard.com/report/github.com/spideyz0r/fh)
+
 A modern shell history replacement with fuzzy search, statistics, and AI-powered queries.
 
 > **Note:** This application was built as an experiment in AI-assisted development - the entire codebase was created through collaborative coding with Claude.
