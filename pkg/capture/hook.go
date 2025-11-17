@@ -195,6 +195,7 @@ func InstallHook(shell ShellType, rcFile string, keybinding string) (*HookInstal
 				return nil, fmt.Errorf("failed to update keybinding: %w", err)
 			}
 			result.KeybindingUpdate = true
+			result.BackupFile = rcFile + ".fh.backup"
 		}
 
 		return result, nil
@@ -286,6 +287,12 @@ func extractCurrentKeybinding(rcFile string, shell ShellType) (string, error) {
 
 // updateKeybinding updates the keybinding line in the RC file
 func updateKeybinding(rcFile string, shell ShellType, keybinding string) error {
+	// Create backup before modifying
+	backupFile := rcFile + ".fh.backup"
+	if err := copyFile(rcFile, backupFile); err != nil {
+		return fmt.Errorf("failed to backup RC file: %w", err)
+	}
+
 	content, err := os.ReadFile(rcFile)
 	if err != nil {
 		return fmt.Errorf("failed to read RC file: %w", err)

@@ -290,7 +290,7 @@ func handleInit() {
 	if result.Installed {
 		fmt.Printf("✓ Installed shell hooks (backup: %s)\n", result.BackupFile)
 	} else if result.KeybindingUpdate {
-		fmt.Printf("✓ Shell hooks already installed (updated keybinding to %s)\n", cfg.GetKeybinding())
+		fmt.Printf("✓ Shell hooks already installed (updated keybinding to %s, backup: %s)\n", cfg.GetKeybinding(), result.BackupFile)
 	} else {
 		fmt.Printf("✓ Shell hooks already installed\n")
 	}
