@@ -35,7 +35,7 @@ func TestShellHookGeneration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			content, err := capture.GetHookContent(tt.shellType)
+			content, err := capture.GetHookContent(tt.shellType, "ctrl-r")
 			require.NoError(t, err)
 			require.NotEmpty(t, content)
 
