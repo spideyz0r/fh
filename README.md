@@ -1,5 +1,7 @@
 # fh - Fast History
 
+[![Go Report Card](https://goreportcard.com/badge/github.com/spideyz0r/fh)](https://goreportcard.com/report/github.com/spideyz0r/fh)
+
 A modern shell history replacement with fuzzy search, statistics, and AI-powered queries.
 
 > **Note:** This application was built as an experiment in AI-assisted development - the entire codebase was created through collaborative coding with Claude.
@@ -126,6 +128,7 @@ ignore:
 search:
   limit: 0          # 0 = unlimited (recommended)
   deduplicate: true # Show only unique commands in search results
+  keybinding: ctrl-r # Ctrl-R (use ctrl-g to keep native Ctrl-R)
 
 ai:
   enabled: true
@@ -167,6 +170,26 @@ For AI features, add your OpenAI API key to your shell RC file (`~/.bashrc` or `
 ```bash
 export OPENAI_API_KEY='sk-...'
 ```
+
+### Custom Keybinding
+
+By default, fh overrides **Ctrl-R** with its fuzzy finder interface. If you prefer to keep the native shell reverse search on Ctrl-R and use a different key for fh, configure the keybinding in `~/.fh/config.yaml`:
+
+```yaml
+search:
+  keybinding: ctrl-g  # Use Ctrl-G for fh (keeps native Ctrl-R)
+```
+
+**Supported keybindings:** `ctrl-r`, `ctrl-g`, `ctrl-f`, `ctrl-s`, `ctrl-t`, `ctrl-h` (or any `ctrl-<letter>`)
+
+**Common use case:** Use `ctrl-g` for fh and keep `ctrl-r` for native shell reverse search. This gives you:
+- **Ctrl-R**: Simple chronological search (predictable, finds recent commands first)
+- **Ctrl-G**: Powerful fuzzy search with previews, filters, and deduplication
+
+**To change keybinding:**
+1. Edit `~/.fh/config.yaml` and change `keybinding` value
+2. Run `fh --init` - it will automatically detect and update your shell configuration
+3. Restart your shell: `source ~/.bashrc` or `source ~/.zshrc`
 
 ## How It Works
 

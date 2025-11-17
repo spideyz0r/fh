@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	version = "1.1.0"
+	version = "1.2.0"
 )
 
 func main() {
@@ -280,8 +280,8 @@ func handleInit() {
 		os.Exit(1)
 	}
 
-	// Install hooks
-	result, err := capture.InstallHook(shell, rcFile)
+	// Install hooks with configured keybinding
+	result, err := capture.InstallHook(shell, rcFile, cfg.GetKeybinding())
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error installing hooks: %v\n", err)
 		os.Exit(1)
@@ -289,6 +289,8 @@ func handleInit() {
 
 	if result.Installed {
 		fmt.Printf("✓ Installed shell hooks (backup: %s)\n", result.BackupFile)
+	} else if result.KeybindingUpdate {
+		fmt.Printf("✓ Shell hooks already installed (updated keybinding to %s)\n", cfg.GetKeybinding())
 	} else {
 		fmt.Printf("✓ Shell hooks already installed\n")
 	}

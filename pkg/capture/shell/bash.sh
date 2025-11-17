@@ -41,7 +41,7 @@ if [[ "$PROMPT_COMMAND" != *"__fh_save"* ]]; then
     fi
 fi
 
-# Bind Ctrl-R to fh
+# Bind {{KEYBINDING_DISPLAY}} to fh
 # Note: Requires bash 4.0+ for READLINE_LINE to work properly
 __fh_widget() {
     local selected
@@ -50,4 +50,4 @@ __fh_widget() {
     READLINE_POINT=${#READLINE_LINE}
 }
 
-bind -x '"\C-r": __fh_widget'
+bind -x '"{{KEYBINDING_CODE}}": __fh_widget'

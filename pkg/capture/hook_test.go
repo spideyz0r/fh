@@ -63,27 +63,31 @@ func TestDetectShell(t *testing.T) {
 
 func TestGetHookContent(t *testing.T) {
 	t.Run("get bash hook", func(t *testing.T) {
-		content, err := GetHookContent(ShellBash)
+		content, err := GetHookContent(ShellBash, "ctrl-r")
 		require.NoError(t, err)
 		assert.NotEmpty(t, content)
 		assert.Contains(t, content, "bash")
+		assert.Contains(t, content, "Ctrl-R")
+		assert.Contains(t, content, `"\C-r"`)
 	})
 
 	t.Run("get zsh hook", func(t *testing.T) {
-		content, err := GetHookContent(ShellZsh)
+		content, err := GetHookContent(ShellZsh, "ctrl-g")
 		require.NoError(t, err)
 		assert.NotEmpty(t, content)
 		assert.Contains(t, content, "zsh")
+		assert.Contains(t, content, "Ctrl-G")
+		assert.Contains(t, content, "'^G'")
 	})
 
 	t.Run("fish not supported", func(t *testing.T) {
-		_, err := GetHookContent(ShellFish)
+		_, err := GetHookContent(ShellFish, "ctrl-r")
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "fish shell not yet supported")
 	})
 
 	t.Run("unsupported shell type", func(t *testing.T) {
-		_, err := GetHookContent(ShellType("unknown"))
+		_, err := GetHookContent(ShellType("unknown"), "ctrl-r")
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "unsupported shell")
 	})
@@ -201,7 +205,7 @@ func TestInstallHook(t *testing.T) {
 		err := os.WriteFile(rcFile, []byte(initialContent), 0644)
 		require.NoError(t, err)
 
-		result, err := InstallHook(ShellBash, rcFile)
+		result, err := InstallHook(ShellBash, rcFile, "ctrl-r")
 		require.NoError(t, err)
 		assert.True(t, result.Installed)
 		assert.Equal(t, rcFile, result.RCFile)
@@ -212,6 +216,7 @@ func TestInstallHook(t *testing.T) {
 		require.NoError(t, err)
 		assert.Contains(t, string(content), "# fh - Fast History")
 		assert.Contains(t, string(content), initialContent)
+		assert.Contains(t, string(content), "Ctrl-R")
 
 		// Verify backup was created
 		backupContent, err := os.ReadFile(result.BackupFile)
@@ -231,7 +236,7 @@ hook content here
 		err := os.WriteFile(rcFile, []byte(content), 0644)
 		require.NoError(t, err)
 
-		result, err := InstallHook(ShellBash, rcFile)
+		result, err := InstallHook(ShellBash, rcFile, "ctrl-r")
 		require.NoError(t, err)
 		assert.False(t, result.Installed)
 		assert.Equal(t, rcFile, result.RCFile)
@@ -246,7 +251,7 @@ hook content here
 		tempDir := t.TempDir()
 		rcFile := filepath.Join(tempDir, ".bashrc")
 
-		result, err := InstallHook(ShellBash, rcFile)
+		result, err := InstallHook(ShellBash, rcFile, "ctrl-r")
 		require.NoError(t, err)
 		assert.True(t, result.Installed)
 
@@ -257,6 +262,7 @@ hook content here
 		content, err := os.ReadFile(rcFile)
 		require.NoError(t, err)
 		assert.Contains(t, string(content), "# fh - Fast History")
+		assert.Contains(t, string(content), "Ctrl-R")
 	})
 
 	t.Run("install zsh hook", func(t *testing.T) {
@@ -266,13 +272,15 @@ hook content here
 		err := os.WriteFile(rcFile, []byte(""), 0644)
 		require.NoError(t, err)
 
-		result, err := InstallHook(ShellZsh, rcFile)
+		result, err := InstallHook(ShellZsh, rcFile, "ctrl-g")
 		require.NoError(t, err)
 		assert.True(t, result.Installed)
 
 		content, err := os.ReadFile(rcFile)
 		require.NoError(t, err)
 		assert.Contains(t, string(content), "# fh - Fast History")
+		assert.Contains(t, string(content), "Ctrl-G")
+		assert.Contains(t, string(content), "'^G'")
 	})
 }
 
