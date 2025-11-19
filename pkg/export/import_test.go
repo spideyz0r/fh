@@ -7,6 +7,7 @@ import (
 
 	"github.com/spideyz0r/fh/pkg/storage"
 	"github.com/spideyz0r/fh/pkg/testutil"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestImportText(t *testing.T) {
@@ -328,6 +329,64 @@ func TestImportCSVMissingRequiredColumn(t *testing.T) {
 	}
 }
 
+func TestImportTextWithLongCommands(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	defer db.Close()
+
+	// Create input with very long command line (500KB) - larger than default scanner buffer
+	longCommand := "curl -X POST -H 'Content-Type: application/json' -d '" + strings.Repeat("x", 500*1024) + "' https://example.com/api"
+	input := longCommand + "\nls -la\necho hello"
+
+	r := strings.NewReader(input)
+	dedupConfig := storage.DedupConfig{
+		Enabled:  true,
+		Strategy: storage.KeepAll,
+	}
+
+	count, err := Import(db, r, FormatText, dedupConfig)
+	if err != nil {
+		t.Fatalf("Import failed with large command line: %v", err)
+	}
+
+	if count != 3 {
+		t.Errorf("Expected 3 imports, got %d", count)
+	}
+
+	// Verify entries were imported
+	entries, err := db.Query(storage.QueryFilters{})
+	if err != nil {
+		t.Fatalf("Query failed: %v", err)
+	}
+
+	if len(entries) != 3 {
+		t.Errorf("Expected 3 entries in database, got %d", len(entries))
+	}
+
+	// Check that the very long command was preserved correctly
+	commands := make(map[string]bool)
+	for _, entry := range entries {
+		commands[entry.Command] = true
+	}
+
+	expectedCommands := []string{longCommand, "ls -la", "echo hello"}
+	for _, expected := range expectedCommands {
+		if !commands[expected] {
+			t.Errorf("Expected command %q not found in results", expected[:min(50, len(expected))]+"...")
+		}
+	}
+
+	// Specifically verify the long command was imported with correct length
+	found := false
+	for _, entry := range entries {
+		if len(entry.Command) > 500*1024 {
+			found = true
+			assert.Equal(t, longCommand, entry.Command, "Long command should be preserved exactly")
+			break
+		}
+	}
+	assert.True(t, found, "Should find the very long command")
+}
+
 func TestImportRoundTrip(t *testing.T) {
 	// Test export and import roundtrip
 	db1 := testutil.NewTestDB(t)
@@ -424,4 +483,12 @@ func TestImportRoundTrip(t *testing.T) {
 			t.Errorf("Entry %d: git_branch mismatch: expected %q, got %q", i, entries[i].GitBranch, entry.GitBranch)
 		}
 	}
+}
+
+// min returns the smaller of two integers (for Go versions < 1.21)
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
