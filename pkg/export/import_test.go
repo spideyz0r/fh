@@ -484,11 +484,3 @@ func TestImportRoundTrip(t *testing.T) {
 		}
 	}
 }
-
-// min returns the smaller of two integers (for Go versions < 1.21)
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
