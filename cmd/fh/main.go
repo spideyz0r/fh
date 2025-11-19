@@ -311,8 +311,15 @@ func handleInit() {
 	importResult, err := importer.ImportHistory(db, shell, dedupConfig)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: Could not import history: %v\n", err)
+		fmt.Fprintf(os.Stderr, "You can manually import later with: fh --import --input ~/.%s_history\n", strings.ToLower(string(shell)))
 	} else if importResult.ImportedEntries > 0 {
-		fmt.Printf("✓ Imported %d commands\n", importResult.ImportedEntries)
+		fmt.Printf("✓ Imported %d commands", importResult.ImportedEntries)
+		if importResult.SkippedEntries > 0 {
+			fmt.Printf(" (skipped %d due to errors)", importResult.SkippedEntries)
+		}
+		fmt.Println()
+	} else {
+		fmt.Printf("✓ No commands to import (history file empty or already imported)\n")
 	}
 
 	// Print success message
