@@ -40,6 +40,11 @@ func ParseBashHistoryFile(path string) ([]*BashHistoryEntry, error) {
 
 	var entries []*BashHistoryEntry
 	scanner := bufio.NewScanner(file)
+	
+	// Increase buffer size to handle very long command lines (up to 1MB)
+	const maxScanTokenSize = 1024 * 1024 // 1MB
+	buf := make([]byte, maxScanTokenSize)
+	scanner.Buffer(buf, maxScanTokenSize)
 
 	var currentTimestamp int64
 	lineNum := 0

@@ -3,6 +3,7 @@ package importer
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/spideyz0r/fh/pkg/capture"
@@ -696,6 +697,48 @@ func TestImportFromFile_EdgeCases(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, 0, result.TotalEntries)
 		assert.Equal(t, 0, result.ImportedEntries)
+	})
+
+	t.Run("import bash history with very long command line", func(t *testing.T) {
+		db := testutil.NewTestDB(t)
+		defer db.Close()
+
+		tempDir := t.TempDir()
+		histFile := filepath.Join(tempDir, ".bash_history")
+
+		// Create a very long command (500KB) - larger than default scanner buffer
+		longCommand := "echo '" + strings.Repeat("a", 500*1024) + "'"
+		content := `#1234567890
+` + longCommand + `
+#1234567900
+regular command`
+
+		err := os.WriteFile(histFile, []byte(content), 0644)
+		require.NoError(t, err)
+
+		dedupConfig := storage.DedupConfig{
+			Enabled:  true,
+			Strategy: storage.KeepAll,
+		}
+
+		result, err := ImportFromFile(db, capture.ShellBash, histFile, dedupConfig)
+		require.NoError(t, err, "Should handle very long command lines without scanner buffer errors")
+		assert.Equal(t, 2, result.TotalEntries)
+		assert.Equal(t, 2, result.ImportedEntries)
+		assert.Equal(t, 0, result.SkippedEntries)
+
+		// Verify both commands were imported correctly
+		entries, err := db.Query(storage.QueryFilters{Limit: 10})
+		require.NoError(t, err)
+		assert.Len(t, entries, 2)
+
+		// Check that the long command was preserved
+		commands := make(map[string]bool)
+		for _, entry := range entries {
+			commands[entry.Command] = true
+		}
+		assert.True(t, commands[longCommand], "Long command should be imported")
+		assert.True(t, commands["regular command"], "Regular command should be imported")
 	})
 
 	t.Run("import zsh with mixed format entries", func(t *testing.T) {
