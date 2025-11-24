@@ -190,6 +190,12 @@ func Import(db *storage.DB, r io.Reader, format Format, dedupConfig storage.Dedu
 // importText imports from plain text format (one command per line)
 func importText(db *storage.DB, r io.Reader, dedupConfig storage.DedupConfig) (int, error) {
 	scanner := bufio.NewScanner(r)
+	
+	// Increase buffer size to handle very long command lines (up to 1MB)
+	const maxScanTokenSize = 1024 * 1024 // 1MB
+	buf := make([]byte, maxScanTokenSize)
+	scanner.Buffer(buf, maxScanTokenSize)
+	
 	count := 0
 
 	for scanner.Scan() {
