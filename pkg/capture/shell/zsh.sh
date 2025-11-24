@@ -37,7 +37,7 @@ if (( ! ${precmd_functions[(I)__fh_save]} )); then
     precmd_functions+=(__fh_save)
 fi
 
-# fh widget for Ctrl-R
+# fh widget for {{KEYBINDING_DISPLAY}}
 __fh_widget() {
     local selected
     selected=$(fh)
@@ -50,5 +50,5 @@ __fh_widget() {
 # Register the widget
 zle -N __fh_widget
 
-# Bind Ctrl-R to fh widget
-bindkey '^R' __fh_widget
+# Bind {{KEYBINDING_DISPLAY}} to fh widget
+bindkey '{{KEYBINDING_CODE}}' __fh_widget

@@ -51,8 +51,9 @@ type IgnoreConfig struct {
 
 // SearchConfig holds search-related configuration.
 type SearchConfig struct {
-	Limit       int  `yaml:"limit"`       // Max number of entries to load for FZF (0 = unlimited)
-	Deduplicate bool `yaml:"deduplicate"` // Display only unique commands in FZF
+	Limit       int    `yaml:"limit"`       // Max number of entries to load for FZF (0 = unlimited)
+	Deduplicate bool   `yaml:"deduplicate"` // Display only unique commands in FZF
+	Keybinding  string `yaml:"keybinding"`  // Keybinding for fh (e.g., "ctrl-r", "ctrl-g", "ctrl-f")
 }
 
 // AIConfig holds AI-powered search configuration.
@@ -97,8 +98,9 @@ func Default() *Config {
 			},
 		},
 		Search: SearchConfig{
-			Limit:       0,    // Default: unlimited - fuzzy finder handles large datasets efficiently
-			Deduplicate: true, // Default: show only unique commands in FZF
+			Limit:       0,           // Default: unlimited - fuzzy finder handles large datasets efficiently
+			Deduplicate: true,        // Default: show only unique commands in FZF
+			Keybinding:  "ctrl-r",    // Default: Ctrl-R (use "ctrl-g" to keep native bash Ctrl-R)
 		},
 		AI: AIConfig{
 			Enabled:        true,
@@ -258,4 +260,12 @@ func (c *Config) GetDedupConfig() storage.DedupConfig {
 // GetDatabasePath returns the configured database path
 func (c *Config) GetDatabasePath() string {
 	return c.Database.Path
+}
+
+// GetKeybinding returns the configured keybinding for fh
+func (c *Config) GetKeybinding() string {
+	if c.Search.Keybinding == "" {
+		return "ctrl-r" // Default fallback
+	}
+	return c.Search.Keybinding
 }

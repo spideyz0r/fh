@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	version = "1.0.0"
+	version = "1.2.0"
 )
 
 func main() {
@@ -280,8 +280,8 @@ func handleInit() {
 		os.Exit(1)
 	}
 
-	// Install hooks
-	result, err := capture.InstallHook(shell, rcFile)
+	// Install hooks with configured keybinding
+	result, err := capture.InstallHook(shell, rcFile, cfg.GetKeybinding())
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error installing hooks: %v\n", err)
 		os.Exit(1)
@@ -289,6 +289,8 @@ func handleInit() {
 
 	if result.Installed {
 		fmt.Printf("✓ Installed shell hooks (backup: %s)\n", result.BackupFile)
+	} else if result.KeybindingUpdate {
+		fmt.Printf("✓ Shell hooks already installed (updated keybinding to %s, backup: %s)\n", cfg.GetKeybinding(), result.BackupFile)
 	} else {
 		fmt.Printf("✓ Shell hooks already installed\n")
 	}
@@ -309,8 +311,15 @@ func handleInit() {
 	importResult, err := importer.ImportHistory(db, shell, dedupConfig)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: Could not import history: %v\n", err)
+		fmt.Fprintf(os.Stderr, "You can manually import later with: fh --import --input ~/.%s_history\n", strings.ToLower(string(shell)))
 	} else if importResult.ImportedEntries > 0 {
-		fmt.Printf("✓ Imported %d commands\n", importResult.ImportedEntries)
+		fmt.Printf("✓ Imported %d commands", importResult.ImportedEntries)
+		if importResult.SkippedEntries > 0 {
+			fmt.Printf(" (skipped %d due to errors)", importResult.SkippedEntries)
+		}
+		fmt.Println()
+	} else {
+		fmt.Printf("✓ No commands to import (history file empty or already imported)\n")
 	}
 
 	// Print success message
