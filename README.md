@@ -4,7 +4,7 @@
 
 A modern shell history replacement with fuzzy search, statistics, and AI-powered queries.
 
-> **Note:** This application was built as an experiment in AI-assisted development - the entire codebase was created through collaborative coding with Claude.
+> **Note:** This application was built as an experiment in AI-assisted development - the entire codebase was created through collaborative coding with Claude & Copilot.
 
 ## Features
 
